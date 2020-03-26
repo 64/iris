@@ -17,7 +17,9 @@ impl UpdateRate {
     pub fn wait(&mut self) {
         let target_rate = self.target_rate.as_secs_f64();
         let current_time = Instant::now();
-        let delta = current_time.saturating_duration_since(self.prev_time).as_secs_f64();
+        let delta = current_time
+            .saturating_duration_since(self.prev_time)
+            .as_secs_f64();
 
         if delta < target_rate {
             let sleep_time = target_rate - delta;

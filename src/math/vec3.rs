@@ -13,7 +13,12 @@ pub struct Vec3<System = Global> {
 
 impl<S> Vec3<S> {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z, _coord: PhantomData }
+        Self {
+            x,
+            y,
+            z,
+            _coord: PhantomData,
+        }
     }
 
     pub fn dot(self, other: Self) -> f32 {
@@ -36,7 +41,9 @@ impl<S> Vec3<S> {
 // Required because #[derive(Copy, Clone)] places bounds on type parameters
 impl<S> Copy for Vec3<S> {}
 impl<S> Clone for Vec3<S> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 impl<S> std::cmp::PartialEq<f32> for Vec3<S> {

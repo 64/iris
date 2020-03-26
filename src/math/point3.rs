@@ -13,7 +13,12 @@ pub struct Point3<System = Global> {
 
 impl<S> Point3<S> {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z, _coord: PhantomData }
+        Self {
+            x,
+            y,
+            z,
+            _coord: PhantomData,
+        }
     }
 
     pub fn distance(self, other: Self) -> f32 {
@@ -32,7 +37,9 @@ impl<S> Point3<S> {
 // Required because #[derive(Copy, Clone)] places bounds on type parameters
 impl<S> Copy for Point3<S> {}
 impl<S> Clone for Point3<S> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 impl<S> std::cmp::PartialEq<f32> for Point3<S> {
