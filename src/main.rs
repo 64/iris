@@ -10,20 +10,20 @@ use std::{
     },
 };
 
+mod color;
 mod frame;
 mod math;
 mod render;
+mod sampler;
 mod spectrum;
 mod tile;
-mod color;
-mod sampler;
 
 use render::Render;
 use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 1000;
+const TOTAL_SPP: usize = 20;
 
 static DONE: AtomicBool = AtomicBool::new(false);
 
@@ -81,6 +81,8 @@ fn main() {
     }
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        // TODO: Use some kind of sleeping mutex so that we only update the screen when
+        // the render buffer has changed?
         update_rate.wait();
         let buffer = render.buffer.read().unwrap();
         window

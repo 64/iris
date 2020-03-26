@@ -1,26 +1,26 @@
-use rand::{thread_rng, Rng};
-
 use std::{
     cmp::{Ord, Ordering},
     time::Instant,
 };
 
 use crate::{
+    color::Xyz,
     math::{Point3, Ray, Vec3},
     render::Render,
+    sampler::Sampler,
     spectrum::{self, SpectrumSample},
-    color::Xyz,
 };
 
 const MAX_TILE_WIDTH: usize = 64;
 const MAX_TILE_HEIGHT: usize = 64;
 const SAMPLE_CHUNK_SIZE: usize = 20;
+const SEED: u32 = 12345678;
 
-// TODO: Move to color.rs
 fn get_pixel_color(
     x: usize,
     y: usize,
     spp_this_iter: usize,
+    remaining_samples: usize,
     render: &Render,
 ) -> Xyz {
     let dir = Vec3::new(0.0, 0.0, -1.0);
@@ -29,38 +29,47 @@ fn get_pixel_color(
         ((y as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
         0.0,
     );
+
+    let samples_so_far = render.spp - remaining_samples;
     let weight = 1.0 / render.spp as f32;
 
     let mut xyz_sum = Xyz::new(0.0, 0.0, 0.0);
 
-    for _ in 0..spp_this_iter {
+    for i in 0..spp_this_iter {
+        let mut sampler = Sampler::new(x, y, i + samples_so_far, SEED);
+
+        let hero_wavelength = sampler.gen_range(spectrum::LAMBDA_MIN_NM, spectrum::LAMBDA_MAX_NM);
+
         let jitter = Vec3::new(
-            rand::random::<f32>() / render.width as f32,
-            rand::random::<f32>() / render.height as f32,
+            sampler.gen_0_1() / render.width as f32,
+            sampler.gen_0_1() / render.height as f32,
             0.0,
         );
 
-        xyz_sum += trace_ray(Ray::new(pixel_center + jitter, dir)).to_xyz();
+        xyz_sum += trace_ray(
+            Ray::new(pixel_center + jitter, dir),
+            hero_wavelength,
+            &mut sampler,
+        )
+        .to_xyz(hero_wavelength);
     }
 
     xyz_sum * weight
 }
 
-fn trace_ray(ray: Ray) -> SpectrumSample {
+fn trace_ray(ray: Ray, wavelength: f32, sampler: &mut Sampler) -> SpectrumSample {
     if ray.o.x * ray.o.x + ray.o.y * ray.o.y <= 0.6 {
-        let mean = 700.0;
-        let var = 30.0;
+        let pdf = |_, w| {
+            let mean = 650.0;
+            let var = 30.0;
+            use statrs::distribution::{Continuous, Normal};
+            let dist = Normal::new(mean, var).unwrap();
+            (dist.pdf(w as f64) / dist.pdf(mean)) as f32
+        };
 
-        use statrs::distribution::{Continuous, Normal};
-        let wavelength = thread_rng().gen_range(spectrum::LAMBDA_MIN_NM, spectrum::LAMBDA_MAX_NM);
-        let dist = Normal::new(mean, var).unwrap();
-        let value = 50.0 * dist.pdf(wavelength as f64) / dist.pdf(mean);
-        SpectrumSample::new(wavelength as f32, value as f32)
+        SpectrumSample::splat(0.0).map(wavelength, pdf)
     } else {
-        SpectrumSample::new(
-            thread_rng().gen_range(spectrum::LAMBDA_MIN_NM, spectrum::LAMBDA_MAX_NM),
-            0.5,
-        )
+        SpectrumSample::splat(0.0001)
     }
 }
 
@@ -123,7 +132,7 @@ impl TileData {
             let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
             let samples_this_iter = self.remaining_samples - new_remaining_samples;
 
-            let weight = ((spectrum::LAMBDA_MAX_NM - spectrum::LAMBDA_MIN_NM))
+            let weight = spectrum::LAMBDA_RANGE_NM * render.spp as f32
                 / ((render.spp - new_remaining_samples) as f32);
 
             for (i, p) in self.temp_buffer.iter_mut().enumerate() {
@@ -131,6 +140,7 @@ impl TileData {
                     self.pixel_x + i % self.width,
                     self.pixel_y + i / self.width,
                     samples_this_iter,
+                    self.remaining_samples,
                     render,
                 );
 
