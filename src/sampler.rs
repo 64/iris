@@ -36,6 +36,21 @@ impl Sampler {
         debug_assert!(lower < upper);
         self.gen_0_1() * (upper - lower) + lower
     }
+
+    pub fn sample_with_pdf<S: Sampleable + Clone>(&mut self) -> (S, f32) {
+        S::sample_with_pdf(self)
+    }
+}
+
+pub trait Sampleable: Sized {
+    fn sample(sampler: &mut Sampler) -> Self;
+    fn pdf(val: &Self) -> f32;
+
+    fn sample_with_pdf(sampler: &mut Sampler) -> (Self, f32) {
+        let sample = Self::sample(sampler);
+        let pdf = Self::pdf(&sample);
+        (sample, pdf)
+    }
 }
 
 fn hash_u32(n: u32, seed: u32) -> u32 {

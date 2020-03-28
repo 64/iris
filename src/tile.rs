@@ -8,70 +8,14 @@ use crate::{
     math::{Point3, Ray, Vec3},
     render::Render,
     sampler::Sampler,
-    spectrum::{self, SpectrumSample},
+    scene,
+    spectrum::Wavelength,
 };
 
 const MAX_TILE_WIDTH: usize = 64;
 const MAX_TILE_HEIGHT: usize = 64;
 const SAMPLE_CHUNK_SIZE: usize = 20;
 const SEED: u32 = 12345678;
-
-fn get_pixel_color(
-    x: usize,
-    y: usize,
-    spp_this_iter: usize,
-    remaining_samples: usize,
-    render: &Render,
-) -> Xyz {
-    let dir = Vec3::new(0.0, 0.0, -1.0);
-    let pixel_center = Point3::new(
-        ((x as f32 + 0.5) / (render.width as f32) - 0.5) * 2.0,
-        ((y as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
-        0.0,
-    );
-
-    let samples_so_far = render.spp - remaining_samples;
-    let weight = 1.0 / render.spp as f32;
-
-    let mut xyz_sum = Xyz::new(0.0, 0.0, 0.0);
-
-    for i in 0..spp_this_iter {
-        let mut sampler = Sampler::new(x, y, i + samples_so_far, SEED);
-
-        let hero_wavelength = sampler.gen_range(spectrum::LAMBDA_MIN_NM, spectrum::LAMBDA_MAX_NM);
-
-        let jitter = Vec3::new(
-            sampler.gen_0_1() / render.width as f32,
-            sampler.gen_0_1() / render.height as f32,
-            0.0,
-        );
-
-        xyz_sum += trace_ray(
-            Ray::new(pixel_center + jitter, dir),
-            hero_wavelength,
-            &mut sampler,
-        )
-        .to_xyz(hero_wavelength);
-    }
-
-    xyz_sum * weight
-}
-
-fn trace_ray(ray: Ray, wavelength: f32, sampler: &mut Sampler) -> SpectrumSample {
-    if ray.o.x * ray.o.x + ray.o.y * ray.o.y <= 0.6 {
-        let pdf = |_, w| {
-            let mean = 650.0;
-            let var = 30.0;
-            use statrs::distribution::{Continuous, Normal};
-            let dist = Normal::new(mean, var).unwrap();
-            (dist.pdf(w as f64) / dist.pdf(mean)) as f32
-        };
-
-        SpectrumSample::splat(0.0).map(wavelength, pdf)
-    } else {
-        SpectrumSample::splat(0.0001)
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct TileData {
@@ -132,8 +76,7 @@ impl TileData {
             let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
             let samples_this_iter = self.remaining_samples - new_remaining_samples;
 
-            let weight = spectrum::LAMBDA_RANGE_NM * render.spp as f32
-                / ((render.spp - new_remaining_samples) as f32);
+            let weight = render.spp as f32 / ((render.spp - new_remaining_samples) as f32);
 
             for (i, p) in self.temp_buffer.iter_mut().enumerate() {
                 let xyz = get_pixel_color(
@@ -162,6 +105,50 @@ impl TileData {
 
         self
     }
+}
+
+fn get_pixel_color(
+    x: usize,
+    y: usize,
+    spp_this_iter: usize,
+    remaining_samples: usize,
+    render: &Render,
+) -> Xyz {
+    let dir = Vec3::new(0.0, 0.0, -1.0);
+    let pixel_center = Point3::new(
+        ((x as f32 + 0.5) / (render.width as f32) - 0.5) * 2.0,
+        ((y as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
+        0.0,
+    );
+
+    let samples_so_far = render.spp - remaining_samples;
+    let weight = 1.0 / render.spp as f32;
+
+    let mut xyz_sum = Xyz::new(0.0, 0.0, 0.0);
+
+    for i in 0..spp_this_iter {
+        let mut sampler = Sampler::new(x, y, i + samples_so_far, SEED);
+
+        let (hero_wavelength, pdf) = sampler.sample_with_pdf::<Wavelength>();
+
+        let jitter = Vec3::new(
+            sampler.gen_0_1() / render.width as f32,
+            sampler.gen_0_1() / render.height as f32,
+            0.0,
+        );
+
+        xyz_sum += render
+            .scene
+            .trace_ray(
+                Ray::new(pixel_center + jitter, dir),
+                hero_wavelength,
+                &mut sampler,
+            )
+            .to_xyz(hero_wavelength)
+            / pdf;
+    }
+
+    xyz_sum * weight
 }
 
 impl PartialEq for TileData {

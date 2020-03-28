@@ -32,6 +32,10 @@ impl<S> Point3<S> {
     pub fn to_vec(self) -> Vec3<S> {
         Vec3::new(self.x, self.y, self.z)
     }
+
+    pub fn to_nalgebra(self) -> bvh::nalgebra::Point3<f32> {
+        bvh::nalgebra::Point3::new(self.x, self.y, self.z)
+    }
 }
 
 // Required because #[derive(Copy, Clone)] places bounds on type parameters
@@ -69,6 +73,14 @@ impl<S> std::ops::AddAssign<Vec3<S>> for Point3<S> {
         self.x += other.x;
         self.y += other.y;
         self.z += other.z;
+    }
+}
+
+impl<S> std::ops::Sub<Vec3<S>> for Point3<S> {
+    type Output = Self;
+
+    fn sub(self, other: Vec3<S>) -> Self {
+        Self::new(self.x - other.x, self.y - other.y, self.z - other.z)
     }
 }
 

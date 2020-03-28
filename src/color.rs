@@ -1,4 +1,4 @@
-use crate::spectrum::{LAMBDA_MAX_NM, LAMBDA_MIN_NM};
+use crate::spectrum::{Wavelength, LAMBDA_MAX_NM, LAMBDA_MIN_NM};
 
 const CIE_SAMPLES: usize = 700 - 380 + 1;
 
@@ -14,10 +14,10 @@ impl Xyz {
         Self { x, y, z }
     }
 
-    pub fn from_wavelength(wavelength: f32, value: f32) -> Self {
-        let x = match_lookup(wavelength, &CIE_X) * value;
-        let y = match_lookup(wavelength, &CIE_Y) * value;
-        let z = match_lookup(wavelength, &CIE_Z) * value;
+    pub fn from_wavelength(wavelength: Wavelength, value: f32) -> Self {
+        let x = match_lookup(wavelength.as_nm_f32(), &CIE_X) * value;
+        let y = match_lookup(wavelength.as_nm_f32(), &CIE_Y) * value;
+        let z = match_lookup(wavelength.as_nm_f32(), &CIE_Z) * value;
         Self { x, y, z }
     }
 
@@ -69,6 +69,18 @@ impl std::ops::Mul<Xyz> for f32 {
             x: other.x * self,
             y: other.y * self,
             z: other.z * self,
+        }
+    }
+}
+
+impl std::ops::Div<f32> for Xyz {
+    type Output = Self;
+
+    fn div(self, val: f32) -> Self {
+        Self {
+            x: self.x / val,
+            y: self.y / val,
+            z: self.z / val,
         }
     }
 }

@@ -15,6 +15,8 @@ mod frame;
 mod math;
 mod render;
 mod sampler;
+mod scene;
+mod shapes;
 mod spectrum;
 mod tile;
 
@@ -23,7 +25,7 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 20;
+const TOTAL_SPP: usize = 200;
 
 static DONE: AtomicBool = AtomicBool::new(false);
 
@@ -33,6 +35,7 @@ fn main() {
         height: HEIGHT,
         spp: TOTAL_SPP,
         buffer: RwLock::new(vec![0; WIDTH * HEIGHT]),
+        scene: scene::Scene::dummy(),
     });
 
     let mut window = Window::new(

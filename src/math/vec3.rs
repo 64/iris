@@ -36,6 +36,10 @@ impl<S> Vec3<S> {
     pub fn normalized(self) -> Self {
         self / self.len()
     }
+
+    pub fn to_nalgebra(self) -> bvh::nalgebra::Vector3<f32> {
+        bvh::nalgebra::Vector3::new(self.x, self.y, self.z)
+    }
 }
 
 // Required because #[derive(Copy, Clone)] places bounds on type parameters

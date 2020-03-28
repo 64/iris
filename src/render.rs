@@ -1,3 +1,4 @@
+use crate::scene::Scene;
 use std::sync::RwLock;
 
 pub struct Render {
@@ -5,4 +6,5 @@ pub struct Render {
     pub height: usize,
     pub spp: usize,
     pub buffer: RwLock<Vec<u32>>,
+    pub scene: Scene,
 }
