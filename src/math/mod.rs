@@ -8,5 +8,7 @@ pub use point3::*;
 pub use ray::*;
 pub use vec3::*;
 
+pub mod mis;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Global;

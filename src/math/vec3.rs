@@ -120,19 +120,11 @@ impl<S> std::ops::SubAssign<f32> for Vec3<S> {
     }
 }
 
-impl<S> std::ops::Mul for Vec3<S> {
-    type Output = Self;
+impl<S> std::ops::Mul<Vec3<S>> for f32 {
+    type Output = Vec3<S>;
 
-    fn mul(self, other: Self) -> Self {
-        Self::new(self.x * other.x, self.y * other.y, self.z * other.z)
-    }
-}
-
-impl<S> std::ops::MulAssign for Vec3<S> {
-    fn mul_assign(&mut self, other: Self) {
-        self.x *= other.x;
-        self.y *= other.y;
-        self.z *= other.z;
+    fn mul(self, other: Vec3<S>) -> Vec3<S> {
+        Vec3::new(self * other.x, self * other.y, self * other.z)
     }
 }
 

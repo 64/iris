@@ -1,3 +1,5 @@
+#![allow(clippy::excessive_precision, clippy::unreadable_literal)]
+
 use crate::spectrum::{Wavelength, LAMBDA_MAX_NM, LAMBDA_MIN_NM};
 
 const CIE_SAMPLES: usize = 700 - 380 + 1;
@@ -85,6 +87,13 @@ impl std::ops::Div<f32> for Xyz {
     }
 }
 
+impl std::iter::Sum<Xyz> for Xyz {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Xyz::new(0.0, 0.0, 0.0), std::ops::Add::add)
+    }
+}
+
+#[derive(Debug)]
 pub struct Srgb {
     r: f32,
     g: f32,
@@ -94,13 +103,13 @@ pub struct Srgb {
 impl Srgb {
     fn new(r: f32, g: f32, b: f32) -> Self {
         Self {
-            r: (r * 255.99).min(255.99).max(0.0),
-            g: (g * 255.99).min(255.99).max(0.0),
-            b: (b * 255.99).min(255.99).max(0.0),
+            r: (r * 255.99).clamp(0.0, 255.99),
+            g: (g * 255.99).clamp(0.0, 255.99),
+            b: (b * 255.99).clamp(0.0, 255.99),
         }
     }
 
-    pub fn to_u32(self) -> u32 {
+    pub fn to_u32(&self) -> u32 {
         let (r, g, b) = (self.r as u32, self.g as u32, self.b as u32);
         (r << 16) | (g << 8) | b as u32
     }

@@ -1,57 +1,66 @@
 use crate::{
-    math::{Point3, Ray},
+    math::{mis, Point3, Ray},
     sampler::Sampler,
     shapes::{Shape, Sphere},
     spectrum::{SpectrumSample, Wavelength},
+    upsample::{UpsampleTable, UpsampledSpectrum},
 };
 use bvh::bvh::BVH;
 
 pub struct Scene {
     bvh: BVH,
     spheres: Vec<Sphere>,
+    sphere_color: UpsampledSpectrum,
 }
 
 impl Scene {
     pub fn dummy() -> Self {
-        let mut spheres = vec![Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.3)];
+        let mut spheres = vec![Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.7)];
         let bvh = BVH::build(&mut spheres);
+        let upsample_table = UpsampleTable::load();
 
-        Self { spheres, bvh }
+        Self {
+            spheres,
+            bvh,
+            sphere_color: upsample_table.get_spectrum([0.7, 0.0, 0.0]),
+        }
     }
 
     pub fn trace_ray(
         &self,
         ray: Ray,
-        _wavelength: Wavelength,
+        hero_wavelength: Wavelength,
         _sampler: &mut Sampler,
     ) -> SpectrumSample {
-        let ray_t = self
+        let pdfs = [
+            hero_wavelength.rotate_n(0).pdf(),
+            hero_wavelength.rotate_n(1).pdf(),
+            hero_wavelength.rotate_n(2).pdf(),
+            hero_wavelength.rotate_n(3).pdf(),
+        ];
+
+        // Hero wavelength spectral sampling
+        // TODO: Combine with other PT MIS techniques
+        let mis_weight = mis::hwss_weight(pdfs[0], 1.0, pdfs, [1.0, 1.0, 1.0, 1.0]);
+
+        let hit = self
             .bvh
             .traverse(
-                &bvh::ray::Ray::new(ray.o.to_nalgebra(), ray.d.to_nalgebra()),
+                &ray.to_nalgebra(),
                 &self.spheres,
             )
             .iter()
             .filter_map(|sphere| sphere.intersect(&ray))
-            .min_by_key(|ray_t| ordered_float::NotNan::new(*ray_t).unwrap());
+            .min_by_key(|(_hit, ray_t)| ordered_float::NotNan::new(*ray_t).unwrap())
+            .map(|(hit, _ray_t)| hit);
 
-        match ray_t {
-            Some(_ray_t) => SpectrumSample::splat(0.0),
+        let sample = match hit {
+            Some(_hit) => SpectrumSample::from_spectrum(hero_wavelength, |lambda| {
+                self.sphere_color.evaluate(lambda) / 100.0
+            }),
             None => SpectrumSample::splat((ray.o.y + 1.0) / 200.0),
-        }
+        };
 
-        // if ray.o.x * ray.o.x + ray.o.y * ray.o.y <= 0.6 {
-        // let pdf = |_, w: Wavelength| {
-        // let mean = 650.0;
-        // let var = 40.0;
-        // use statrs::distribution::{Continuous, Normal};
-        // let dist = Normal::new(mean, var).unwrap();
-        //(dist.pdf(w.as_nm_f32() as f64) / (100.0 * dist.pdf(mean))) as f32
-        //};
-
-        // SpectrumSample::splat(0.0).map(wavelength, pdf)
-        //} else {
-        // SpectrumSample::splat((ray.o.y + 1.0) / 200.0)
-        //}
+        sample * mis_weight
     }
 }

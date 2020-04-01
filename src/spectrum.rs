@@ -1,6 +1,6 @@
 use crate::{
     color::Xyz,
-    sampler::{Sampleable, Sampler},
+    sampler::Sampler,
 };
 
 pub const LAMBDA_MIN_NM: f32 = 380.0;
@@ -14,15 +14,25 @@ impl Wavelength {
     pub fn as_nm_f32(self) -> f32 {
         self.0
     }
-}
 
-impl Sampleable for Wavelength {
+
+    pub fn rotate_n(self, n: usize) -> Wavelength {
+        let lambda = self.0 + (LAMBDA_RANGE_NM / 4.0) * (n as f32);
+
+        // Perform modulo operation (so that lambda is always in range)
+        if lambda >= LAMBDA_MAX_NM {
+            Self(lambda - LAMBDA_RANGE_NM)
+        } else {
+            Self(lambda)
+        }
+    }
+
     // Uniform sampling
-    fn sample(sampler: &mut Sampler) -> Self {
+    pub fn sample(sampler: &mut Sampler) -> Self {
         Wavelength(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
     }
 
-    fn pdf(_: &Self) -> f32 {
+    pub fn pdf(self) -> f32 {
         1.0 / LAMBDA_RANGE_NM
     }
 }
@@ -45,30 +55,35 @@ impl SpectrumSample {
     }
 
     pub fn to_xyz(self, hero_wavelength: Wavelength) -> Xyz {
-        let a = Xyz::from_wavelength(lambda_n(hero_wavelength, 0), self.x);
-        let b = Xyz::from_wavelength(lambda_n(hero_wavelength, 1), self.y);
-        let c = Xyz::from_wavelength(lambda_n(hero_wavelength, 2), self.z);
-        let d = Xyz::from_wavelength(lambda_n(hero_wavelength, 3), self.w);
-        (a + b + c + d) * 0.25
+        let a = Xyz::from_wavelength(hero_wavelength.rotate_n(0), self.x);
+        let b = Xyz::from_wavelength(hero_wavelength.rotate_n(1), self.y);
+        let c = Xyz::from_wavelength(hero_wavelength.rotate_n(2), self.z);
+        let d = Xyz::from_wavelength(hero_wavelength.rotate_n(3), self.w);
+        a + b + c + d
     }
 
-    pub fn map<F: Fn(f32, Wavelength) -> f32>(self, hero_wavelength: Wavelength, func: F) -> Self {
+    pub fn from_spectrum<F: Fn(Wavelength) -> f32>(hero_wavelength: Wavelength, func: F) -> Self {
         SpectrumSample::new(
-            func(self.x, lambda_n(hero_wavelength, 0)),
-            func(self.y, lambda_n(hero_wavelength, 1)),
-            func(self.z, lambda_n(hero_wavelength, 2)),
-            func(self.w, lambda_n(hero_wavelength, 3)),
+            func(hero_wavelength.rotate_n(0)),
+            func(hero_wavelength.rotate_n(1)),
+            func(hero_wavelength.rotate_n(2)),
+            func(hero_wavelength.rotate_n(3)),
         )
     }
 }
 
-pub fn lambda_n(hero_wavelength: Wavelength, n: usize) -> Wavelength {
-    let lambda = hero_wavelength.0 + (LAMBDA_RANGE_NM / 4.0) * (n as f32);
+impl std::ops::Mul<SpectrumSample> for f32 {
+    type Output = SpectrumSample;
 
-    // Perform modulo operation (so that lambda is always in range)
-    if lambda >= LAMBDA_MAX_NM {
-        Wavelength(lambda - LAMBDA_RANGE_NM)
-    } else {
-        Wavelength(lambda)
+    fn mul(self, other: SpectrumSample) -> SpectrumSample {
+        SpectrumSample::new(self * other.x, self * other.y, self * other.z, self * other.w)
+    }
+}
+
+impl std::ops::Mul<f32> for SpectrumSample {
+    type Output = Self;
+
+    fn mul(self, other: f32) -> Self {
+        Self::new(self.x * other, self.y * other, self.z * other, self.w * other)
     }
 }

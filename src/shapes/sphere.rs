@@ -1,4 +1,4 @@
-use super::Shape;
+use super::{HitInfo, Shape};
 use crate::math::{Point3, Ray, Vec3};
 use bvh::{
     aabb::{Bounded, AABB},
@@ -22,7 +22,7 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
-    fn intersect(&self, ray: &Ray) -> Option<f32> {
+    fn intersect(&self, ray: &Ray) -> Option<(HitInfo, f32)> {
         let oc = ray.o - self.position;
         let a = ray.d.len_squared();
         let half_b = ray.d.dot(oc);
@@ -33,12 +33,26 @@ impl Shape for Sphere {
             let root = discrim.sqrt();
             let temp = (-half_b - root) / a;
             if temp > 0.0 {
-                return Some(temp);
+                let point = ray.point_at(temp);
+                return Some((
+                    HitInfo {
+                        point,
+                        normal: (self.position - point).normalized(),
+                    },
+                    temp,
+                ));
             }
 
             let temp = (-half_b + root) / a;
             if temp > 0.0 {
-                return Some(temp);
+                let point = ray.point_at(temp);
+                return Some((
+                    HitInfo {
+                        point,
+                        normal: (self.position - point).normalized(),
+                    },
+                    temp,
+                ));
             }
         }
 

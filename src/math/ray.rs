@@ -25,4 +25,9 @@ impl<S> Ray<S> {
     pub fn point_at(&self, t: f32) -> Point3<S> {
         self.o + self.d * t
     }
+
+    #[inline(always)]
+    pub fn to_nalgebra(&self) -> bvh::ray::Ray {
+        bvh::ray::Ray::new(self.o.to_nalgebra(), self.d.to_nalgebra())
+    }
 }

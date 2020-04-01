@@ -1,3 +1,4 @@
+#![allow(clippy::excessive_precision, clippy::unreadable_literal)]
 //! An implementation of the Sobol low discrepancy sequence.
 //!
 //! Includes variants with random digit scrambling, Cranley-Patterson rotation,

@@ -6,16 +6,15 @@ use std::{
 use crate::{
     color::Xyz,
     math::{Point3, Ray, Vec3},
-    render::Render,
     sampler::Sampler,
-    scene,
     spectrum::Wavelength,
+    Render,
 };
 
 const MAX_TILE_WIDTH: usize = 64;
 const MAX_TILE_HEIGHT: usize = 64;
 const SAMPLE_CHUNK_SIZE: usize = 20;
-const SEED: u32 = 12345678;
+const SEED: u32 = 123_456_789;
 
 #[derive(Debug, Clone)]
 pub struct TileData {
@@ -75,21 +74,25 @@ impl TileData {
         {
             let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
             let samples_this_iter = self.remaining_samples - new_remaining_samples;
-
             let weight = render.spp as f32 / ((render.spp - new_remaining_samples) as f32);
 
-            for (i, p) in self.temp_buffer.iter_mut().enumerate() {
+            for (i, (pixel, accumulator)) in self
+                .temp_buffer
+                .iter_mut()
+                .zip(self.accum_buffer.iter_mut())
+                .enumerate()
+            {
                 let xyz = get_pixel_color(
                     self.pixel_x + i % self.width,
                     self.pixel_y + i / self.width,
                     samples_this_iter,
-                    self.remaining_samples,
+                    render.spp - self.remaining_samples,
                     render,
                 );
 
-                self.accum_buffer[i] += xyz;
+                *accumulator += xyz;
 
-                *p = (self.accum_buffer[i] * weight).to_srgb().to_u32();
+                *pixel = (*accumulator * weight).to_srgb().to_u32();
             }
 
             self.remaining_samples = new_remaining_samples;
@@ -108,45 +111,44 @@ impl TileData {
 }
 
 fn get_pixel_color(
-    x: usize,
-    y: usize,
-    spp_this_iter: usize,
-    remaining_samples: usize,
+    x_abs: usize,
+    y_abs: usize,
+    samples_this_iter: usize,
+    samples_so_far: usize,
     render: &Render,
 ) -> Xyz {
     let dir = Vec3::new(0.0, 0.0, -1.0);
     let pixel_center = Point3::new(
-        ((x as f32 + 0.5) / (render.width as f32) - 0.5) * 2.0,
-        ((y as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
+        ((x_abs as f32 + 0.5) / (render.width as f32) - 0.5) * 2.0,
+        ((y_abs as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
         0.0,
     );
 
-    let samples_so_far = render.spp - remaining_samples;
     let weight = 1.0 / render.spp as f32;
 
-    let mut xyz_sum = Xyz::new(0.0, 0.0, 0.0);
+    let xyz_sum = (0..samples_this_iter)
+        .map(|i| {
+            let mut sampler = Sampler::new(x_abs, y_abs, i + samples_so_far, SEED);
 
-    for i in 0..spp_this_iter {
-        let mut sampler = Sampler::new(x, y, i + samples_so_far, SEED);
+            let hero_wavelength = Wavelength::sample(&mut sampler);
 
-        let (hero_wavelength, pdf) = sampler.sample_with_pdf::<Wavelength>();
+            // TODO: Camera struct
+            let jitter = Vec3::new(
+                0.5 * sampler.gen_0_1() / render.width as f32,
+                0.5 * sampler.gen_0_1() / render.height as f32,
+                0.0,
+            );
 
-        let jitter = Vec3::new(
-            sampler.gen_0_1() / render.width as f32,
-            sampler.gen_0_1() / render.height as f32,
-            0.0,
-        );
-
-        xyz_sum += render
-            .scene
-            .trace_ray(
-                Ray::new(pixel_center + jitter, dir),
-                hero_wavelength,
-                &mut sampler,
-            )
-            .to_xyz(hero_wavelength)
-            / pdf;
-    }
+            render
+                .scene
+                .trace_ray(
+                    Ray::new(pixel_center + jitter, dir),
+                    hero_wavelength,
+                    &mut sampler,
+                )
+                .to_xyz(hero_wavelength)
+        })
+        .sum::<Xyz>();
 
     xyz_sum * weight
 }
