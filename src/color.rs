@@ -1,6 +1,9 @@
 #![allow(clippy::excessive_precision, clippy::unreadable_literal)]
 
-use crate::spectrum::{Wavelength, LAMBDA_MAX_NM, LAMBDA_MIN_NM};
+use crate::spectrum::{
+    wavelength::{LAMBDA_MAX_NM, LAMBDA_MIN_NM},
+    Wavelength,
+};
 
 const CIE_SAMPLES: usize = 700 - 380 + 1;
 

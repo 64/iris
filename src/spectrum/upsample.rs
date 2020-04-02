@@ -1,5 +1,5 @@
 // Implementation of http://rgl.epfl.ch/publications/Jakob2019Spectral
-use crate::spectrum::Wavelength;
+use crate::spectrum::{SampleableSpectrum, Wavelength};
 use std::{convert::TryInto, fs::File, io::Read};
 
 pub struct UpsampleTable {
@@ -12,8 +12,8 @@ pub struct UpsampledSpectrum {
     coefficients: [f32; 3],
 }
 
-impl UpsampledSpectrum {
-    pub fn evaluate(&self, lambda: Wavelength) -> f32 {
+impl SampleableSpectrum for UpsampledSpectrum {
+    fn evaluate_single(&self, lambda: Wavelength) -> f32 {
         let x = self.coefficients[0]
             .mul_add(lambda.as_nm_f32(), self.coefficients[1])
             .mul_add(lambda.as_nm_f32(), self.coefficients[2]);
@@ -23,6 +23,7 @@ impl UpsampledSpectrum {
 }
 
 impl UpsampleTable {
+    // TODO: Make not C-ish
     pub fn get_spectrum(&self, rgb: [f32; 3]) -> UpsampledSpectrum {
         let mut i = 0;
         let res = self.resolution;

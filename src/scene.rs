@@ -2,15 +2,14 @@ use crate::{
     math::{mis, Point3, Ray},
     sampler::Sampler,
     shapes::{Shape, Sphere},
-    spectrum::{SpectrumSample, Wavelength},
-    upsample::{UpsampleTable, UpsampledSpectrum},
+    spectrum::{upsample::UpsampleTable, SampleableSpectrum, Spectrum, SpectrumSample, Wavelength},
 };
 use bvh::bvh::BVH;
 
 pub struct Scene {
     bvh: BVH,
     spheres: Vec<Sphere>,
-    sphere_color: UpsampledSpectrum,
+    sphere_color: Spectrum,
 }
 
 impl Scene {
@@ -22,7 +21,7 @@ impl Scene {
         Self {
             spheres,
             bvh,
-            sphere_color: upsample_table.get_spectrum([0.7, 0.0, 0.0]),
+            sphere_color: Spectrum::from(upsample_table.get_spectrum([0.7, 0.0, 0.0])),
         }
     }
 
@@ -45,19 +44,14 @@ impl Scene {
 
         let hit = self
             .bvh
-            .traverse(
-                &ray.to_nalgebra(),
-                &self.spheres,
-            )
+            .traverse(&ray.to_nalgebra(), &self.spheres)
             .iter()
             .filter_map(|sphere| sphere.intersect(&ray))
             .min_by_key(|(_hit, ray_t)| ordered_float::NotNan::new(*ray_t).unwrap())
             .map(|(hit, _ray_t)| hit);
 
         let sample = match hit {
-            Some(_hit) => SpectrumSample::from_spectrum(hero_wavelength, |lambda| {
-                self.sphere_color.evaluate(lambda) / 100.0
-            }),
+            Some(_hit) => self.sphere_color.evaluate(hero_wavelength) / 100.0,
             None => SpectrumSample::splat((ray.o.y + 1.0) / 200.0),
         };
 

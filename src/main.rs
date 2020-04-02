@@ -19,7 +19,6 @@ mod scene;
 mod shapes;
 mod spectrum;
 mod tile;
-mod upsample;
 
 pub struct Render {
     pub width: usize,
