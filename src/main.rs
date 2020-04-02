@@ -66,6 +66,8 @@ fn main() {
             .collect::<BinaryHeap<TileData>>(),
     ));
 
+    let start = Instant::now();
+
     for _cpu in 0..num_cpus::get() {
         let tile_priorities = tile_priorities.clone();
         let render = render.clone();
@@ -80,7 +82,7 @@ fn main() {
                 }
                 None => {
                     if !DONE.swap(true, Ordering::Relaxed) {
-                        println!("Done!");
+                        println!("Done in {}s", start.elapsed().as_secs_f32());
                     }
                     break;
                 }

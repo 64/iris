@@ -37,33 +37,25 @@ impl Wavelength {
     }
 }
 
+// TODO: Is the error on these curves reasonable?
 fn pdf(lambda: f32) -> f32 {
     if lambda < 380.0 || lambda > 700.0 {
-        return 0.0;
+        0.0
+    } else {
+        let x1 = lambda;
+        let x2 = lambda * lambda;
+        let x3 = lambda * x2;
+        let x4 = x2 * x2;
+        let x5 = lambda * x4;
+        -8.19329974e-16 * x5 + 5.58900125e-12 * x4 - 9.63692860e-09 * x3 + 6.92631892e-06 * x2
+            - 2.22283548e-03 * x1
+            + 2.64835297e-01
     }
-    // Normalization constant comes from:
-    // https://www.wolframalpha.com/input/?i=integral+sech%5E2%280.0072%28y-538%29%29+between+380+and+700
-    (0.0072 * (lambda - 538.0)).cosh().powi(-2) / 227.322
-}
-
-fn cdf_partial(lambda: f32) -> f32 {
-    // https://www.wolframalpha.com/input/?i=indefinite+integral+sech%5E2%280.0072%28y-538%29%29%2F227.322
-    0.0253855 * (0.0072 * lambda).sinh() / (3.8736 - 0.0072 * lambda).cosh()
-}
-
-fn cdf(lambda: f32) -> f32 {
-    (cdf_partial(lambda) - cdf_partial(LAMBDA_MIN_NM)).clamp(0.0, 1.0)
 }
 
 fn inverse_cdf(unif: f32) -> f32 {
-    // Newton's method
-    // Is this guess good?
-    let mut x = 500.0;
-
-    // Allow up to 0.5% error (is this reasonable?)
-    while (cdf(x) - unif).abs() > 0.005 {
-        x = x - (cdf(x) - unif) / pdf(x);
-    }
-
-    x
+    let val = 377.92772964 * unif.powi(3) - 562.7179108 * unif.powi(2)
+        + 495.09783553 * unif
+        + 384.47036553;
+    val.clamp(LAMBDA_MIN_NM, LAMBDA_MAX_NM)
 }

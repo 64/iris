@@ -14,6 +14,7 @@ opt-level = 1
 
 [profile.release]
 lto = true
+debug = true
 
 [dependencies]
 minifb = "0.15.3"
