@@ -14,7 +14,7 @@ pub struct Scene {
 
 impl Scene {
     pub fn dummy() -> Self {
-        let mut spheres = vec![Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.7)];
+        let mut spheres = vec![Sphere::new(Point3::new(0.0, 0.0, 1.0), 0.5)];
         let bvh = BVH::build(&mut spheres);
         let upsample_table = UpsampleTable::load();
 

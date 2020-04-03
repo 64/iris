@@ -29,33 +29,34 @@ impl Wavelength {
     // wavelength is importance sampled too because we use it for path
     // generation.
     pub fn sample(sampler: &mut Sampler) -> Self {
-        Wavelength(inverse_cdf(sampler.gen_0_1()))
+        Wavelength(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
     }
 
     pub fn pdf(self) -> f32 {
-        pdf(self.0)
+        1.0 / LAMBDA_RANGE_NM
     }
 }
 
 // TODO: Is the error on these curves reasonable?
-fn pdf(lambda: f32) -> f32 {
-    if lambda < 380.0 || lambda > 700.0 {
-        0.0
-    } else {
-        let x1 = lambda;
-        let x2 = lambda * lambda;
-        let x3 = lambda * x2;
-        let x4 = x2 * x2;
-        let x5 = lambda * x4;
-        -8.19329974e-16 * x5 + 5.58900125e-12 * x4 - 9.63692860e-09 * x3 + 6.92631892e-06 * x2
-            - 2.22283548e-03 * x1
-            + 2.64835297e-01
-    }
-}
+// fn pdf(lambda: f32) -> f32 {
+// if lambda < 380.0 || lambda > 700.0 {
+// 0.0
+//} else {
+// let x1 = lambda;
+// let x2 = lambda * lambda;
+// let x3 = lambda * x2;
+// let x4 = x2 * x2;
+// let x5 = lambda * x4;
+//-8.19329974e-16 
+//-8.19329974e-16 * x5 + 5.58900125e-12 * x4 - 9.63692860e-09 * x3 +
+//-8.19329974e-16   6.92631892e-06 * x2
+//- 2.22283548e-03 * x1
+//+ 2.64835297e-01
+//}
 
-fn inverse_cdf(unif: f32) -> f32 {
-    let val = 377.92772964 * unif.powi(3) - 562.7179108 * unif.powi(2)
-        + 495.09783553 * unif
-        + 384.47036553;
-    val.clamp(LAMBDA_MIN_NM, LAMBDA_MAX_NM)
-}
+// fn inverse_cdf(unif: f32) -> f32 {
+// let val = 377.92772964 * unif.powi(3) - 562.7179108 * unif.powi(2)
+//+ 495.09783553 * unif
+//+ 384.47036553;
+// val.clamp(LAMBDA_MIN_NM, LAMBDA_MAX_NM)
+//}

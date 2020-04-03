@@ -12,6 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod camera;
 mod color;
 mod math;
 mod sampler;
@@ -26,8 +27,10 @@ pub struct Render {
     pub spp: usize,
     pub buffer: RwLock<Vec<u32>>,
     pub scene: Scene,
+    pub camera: Camera,
 }
 
+use camera::Camera;
 use scene::Scene;
 use tile::TileData;
 
@@ -44,6 +47,7 @@ fn main() {
         spp: TOTAL_SPP,
         buffer: RwLock::new(vec![0; WIDTH * HEIGHT]),
         scene: scene::Scene::dummy(),
+        camera: Camera::new(math::Point3::new(0.0, 0.0, 0.0), (WIDTH as f32) / (HEIGHT as f32)),
     });
 
     let mut window = Window::new(

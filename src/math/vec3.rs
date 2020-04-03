@@ -3,7 +3,7 @@
 use super::Global;
 use std::marker::PhantomData;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Vec3<System = Global> {
     pub x: f32,
     pub y: f32,
@@ -17,6 +17,15 @@ impl<S> Vec3<S> {
             x,
             y,
             z,
+            _coord: PhantomData,
+        }
+    }
+
+    pub fn splat(x: f32) -> Self {
+        Self {
+            x,
+            y: x,
+            z: x,
             _coord: PhantomData,
         }
     }
@@ -53,6 +62,12 @@ impl<S> Clone for Vec3<S> {
 impl<S> std::cmp::PartialEq<f32> for Vec3<S> {
     fn eq(&self, other: &f32) -> bool {
         self.x == *other && self.y == *other && self.z == *other
+    }
+}
+
+impl<S> std::cmp::PartialEq<Vec3<S>> for Vec3<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y && self.z == other.z
     }
 }
 

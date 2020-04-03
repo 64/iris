@@ -117,8 +117,7 @@ fn get_pixel_color(
     samples_so_far: usize,
     render: &Render,
 ) -> Xyz {
-    let dir = Vec3::new(0.0, 0.0, -1.0);
-    let pixel_center = Point3::new(
+    let pixel_center_clip = Point3::new(
         ((x_abs as f32 + 0.5) / (render.width as f32) - 0.5) * 2.0,
         ((y_abs as f32 + 0.5) / (render.height as f32) - 0.5) * -2.0,
         0.0,
@@ -132,20 +131,19 @@ fn get_pixel_color(
 
             let hero_wavelength = Wavelength::sample(&mut sampler);
 
-            // TODO: Camera struct
-            let jitter = Vec3::new(
+            let jitter_clip = Vec3::new(
                 0.5 * sampler.gen_0_1() / render.width as f32,
                 0.5 * sampler.gen_0_1() / render.height as f32,
                 0.0,
             );
 
+            let target_world = &render.camera.clip_to_world * (pixel_center_clip + jitter_clip);
+            let origin_world = render.camera.position;
+            let ray = Ray::new(origin_world, target_world - origin_world);
+
             render
                 .scene
-                .trace_ray(
-                    Ray::new(pixel_center + jitter, dir),
-                    hero_wavelength,
-                    &mut sampler,
-                )
+                .trace_ray(ray, hero_wavelength, &mut sampler)
                 .to_xyz(hero_wavelength)
         })
         .sum::<Xyz>();
