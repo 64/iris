@@ -1,3 +1,4 @@
+#![feature(stdarch)]
 #![feature(clamp)]
 use minifb::{Key, Window, WindowOptions};
 
@@ -47,7 +48,10 @@ fn main() {
         spp: TOTAL_SPP,
         buffer: RwLock::new(vec![0; WIDTH * HEIGHT]),
         scene: scene::Scene::dummy(),
-        camera: Camera::new(math::Point3::new(0.0, 0.0, 0.0), (WIDTH as f32) / (HEIGHT as f32)),
+        camera: Camera::new(
+            math::Point3::new(0.0, 0.0, 0.0),
+            (WIDTH as f32) / (HEIGHT as f32),
+        ),
     });
 
     let mut window = Window::new(
@@ -86,7 +90,12 @@ fn main() {
                 }
                 None => {
                     if !DONE.swap(true, Ordering::Relaxed) {
-                        println!("Done in {}s", start.elapsed().as_secs_f32());
+                        let elapsed = start.elapsed().as_secs_f32();
+                        println!(
+                            "Done in {}s ({}m ray/s)",
+                            elapsed,
+                            ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed)
+                        );
                     }
                     break;
                 }

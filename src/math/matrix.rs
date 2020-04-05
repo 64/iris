@@ -8,6 +8,10 @@ pub struct Matrix {
 }
 
 impl Matrix {
+    pub const fn new(m: [[f32; 4]; 4]) -> Self {
+        Self { m }
+    }
+
     pub fn id() -> Self {
         Self {
             m: [
@@ -41,9 +45,9 @@ impl Matrix {
     pub fn translation(dir: Vec3) -> Self {
         Self {
             m: [
-                [1.0, 0.0, 0.0, dir.x],
-                [0.0, 1.0, 0.0, dir.y],
-                [0.0, 0.0, 1.0, dir.z],
+                [1.0, 0.0, 0.0, dir.x()],
+                [0.0, 1.0, 0.0, dir.y()],
+                [0.0, 0.0, 1.0, dir.z()],
                 [0.0, 0.0, 0.0, 1.0],
             ],
         }
@@ -133,9 +137,9 @@ impl<S> std::ops::Mul<Vec3<S>> for &'_ Matrix {
 
     fn mul(self, other: Vec3<S>) -> Vec3<S> {
         Vec3::new(
-            self.m[0][0] * other.x + self.m[0][1] * other.y + self.m[0][2] * other.z,
-            self.m[1][0] * other.x + self.m[1][1] * other.y + self.m[1][2] * other.z,
-            self.m[2][0] * other.x + self.m[2][1] * other.y + self.m[2][2] * other.z,
+            self.m[0][0] * other.x() + self.m[0][1] * other.y() + self.m[0][2] * other.z(),
+            self.m[1][0] * other.x() + self.m[1][1] * other.y() + self.m[1][2] * other.z(),
+            self.m[2][0] * other.x() + self.m[2][1] * other.y() + self.m[2][2] * other.z(),
         )
     }
 }
@@ -144,24 +148,26 @@ impl<S> std::ops::Mul<Point3<S>> for &'_ Matrix {
     type Output = Point3<S>;
 
     fn mul(self, other: Point3<S>) -> Point3<S> {
-        let w =
-            self.m[3][0] * other.x + self.m[3][1] * other.y + self.m[3][2] * other.z + self.m[3][3];
+        let w = self.m[3][0] * other.x()
+            + self.m[3][1] * other.y()
+            + self.m[3][2] * other.z()
+            + self.m[3][3];
         debug_assert!(w != 0.0);
 
         Point3::new(
-            (self.m[0][0] * other.x
-                + self.m[0][1] * other.y
-                + self.m[0][2] * other.z
+            (self.m[0][0] * other.x()
+                + self.m[0][1] * other.y()
+                + self.m[0][2] * other.z()
                 + self.m[0][3])
                 / w,
-            (self.m[1][0] * other.x
-                + self.m[1][1] * other.y
-                + self.m[1][2] * other.z
+            (self.m[1][0] * other.x()
+                + self.m[1][1] * other.y()
+                + self.m[1][2] * other.z()
                 + self.m[1][3])
                 / w,
-            (self.m[2][0] * other.x
-                + self.m[2][1] * other.y
-                + self.m[2][2] * other.z
+            (self.m[2][0] * other.x()
+                + self.m[2][1] * other.y()
+                + self.m[2][2] * other.z()
                 + self.m[2][3])
                 / w,
         )
@@ -172,7 +178,7 @@ impl<S> std::ops::Mul<Ray<S>> for &'_ Matrix {
     type Output = Ray<S>;
 
     fn mul(self, other: Ray<S>) -> Ray<S> {
-        Ray::new(self * other.o, self * other.d)
+        Ray::new(self * other.o(), self * other.d())
     }
 }
 

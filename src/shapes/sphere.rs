@@ -23,9 +23,9 @@ impl Sphere {
 
 impl Shape for Sphere {
     fn intersect(&self, ray: &Ray) -> Option<(HitInfo, f32)> {
-        let oc = ray.o - self.position;
-        let a = ray.d.len_squared();
-        let half_b = ray.d.dot(oc);
+        let oc = ray.o() - self.position;
+        let a = ray.d().len_squared();
+        let half_b = ray.d().dot(oc);
         let c = oc.len_squared() - self.radius.powi(2);
         let discrim = half_b.powi(2) - a * c;
 
@@ -37,7 +37,7 @@ impl Shape for Sphere {
                 return Some((
                     HitInfo {
                         point,
-                        normal: (self.position - point).normalized(),
+                        normal: (self.position - point).normalize(),
                     },
                     temp,
                 ));
@@ -49,7 +49,7 @@ impl Shape for Sphere {
                 return Some((
                     HitInfo {
                         point,
-                        normal: (self.position - point).normalized(),
+                        normal: (self.position - point).normalize(),
                     },
                     temp,
                 ));

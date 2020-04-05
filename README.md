@@ -7,5 +7,4 @@ Features (WIP):
 * Parallel and progressive refinement
 
 TODO:
-* Camera perspective
 * SIMD

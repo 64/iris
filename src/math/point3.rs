@@ -30,6 +30,18 @@ impl<S> Point3<S> {
         }
     }
 
+    pub fn x(self) -> f32 {
+        self.x
+    }
+
+    pub fn y(self) -> f32 {
+        self.y
+    }
+
+    pub fn z(self) -> f32 {
+        self.z
+    }
+
     pub fn distance(self, other: Self) -> f32 {
         self.distance_squared(other).sqrt()
     }
@@ -39,11 +51,11 @@ impl<S> Point3<S> {
     }
 
     pub fn to_vec(self) -> Vec3<S> {
-        Vec3::new(self.x, self.y, self.z)
+        Vec3::new(self.x(), self.y(), self.z())
     }
 
     pub fn to_nalgebra(self) -> bvh::nalgebra::Point3<f32> {
-        bvh::nalgebra::Point3::new(self.x, self.y, self.z)
+        bvh::nalgebra::Point3::new(self.x(), self.y(), self.z())
     }
 }
 
@@ -57,13 +69,13 @@ impl<S> Clone for Point3<S> {
 
 impl<S> std::cmp::PartialEq<f32> for Point3<S> {
     fn eq(&self, other: &f32) -> bool {
-        self.x == *other && self.y == *other && self.z == *other
+        self.x() == *other && self.y() == *other && self.z() == *other
     }
 }
 
 impl<S> std::cmp::PartialEq<Point3<S>> for Point3<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y && self.z == other.z
+        self.x() == other.x() && self.y() == other.y() && self.z() == other.z()
     }
 }
 
@@ -71,7 +83,11 @@ impl<S> std::ops::Sub for Point3<S> {
     type Output = Vec3<S>;
 
     fn sub(self, other: Self) -> Vec3<S> {
-        Vec3::new(self.x - other.x, self.y - other.y, self.z - other.z)
+        Vec3::new(
+            self.x() - other.x(),
+            self.y() - other.y(),
+            self.z() - other.z(),
+        )
     }
 }
 
@@ -79,15 +95,17 @@ impl<S> std::ops::Add<Vec3<S>> for Point3<S> {
     type Output = Self;
 
     fn add(self, other: Vec3<S>) -> Self {
-        Self::new(self.x + other.x, self.y + other.y, self.z + other.z)
+        Self::new(
+            self.x() + other.x(),
+            self.y() + other.y(),
+            self.z() + other.z(),
+        )
     }
 }
 
 impl<S> std::ops::AddAssign<Vec3<S>> for Point3<S> {
     fn add_assign(&mut self, other: Vec3<S>) {
-        self.x += other.x;
-        self.y += other.y;
-        self.z += other.z;
+        *self = *self + other;
     }
 }
 
@@ -95,12 +113,16 @@ impl<S> std::ops::Sub<Vec3<S>> for Point3<S> {
     type Output = Self;
 
     fn sub(self, other: Vec3<S>) -> Self {
-        Self::new(self.x - other.x, self.y - other.y, self.z - other.z)
+        Self::new(
+            self.x() - other.x(),
+            self.y() - other.y(),
+            self.z() - other.z(),
+        )
     }
 }
 
 impl<S> From<Vec3<S>> for Point3<S> {
     fn from(v: Vec3<S>) -> Self {
-        Self::new(v.x, v.y, v.z)
+        Self::new(v.x(), v.y(), v.z())
     }
 }

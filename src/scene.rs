@@ -21,7 +21,7 @@ impl Scene {
         Self {
             spheres,
             bvh,
-            sphere_color: Spectrum::from(upsample_table.get_spectrum([0.7, 0.0, 0.0])),
+            sphere_color: Spectrum::from(upsample_table.get_spectrum([1.0, 0.0, 0.0])),
         }
     }
 
@@ -51,8 +51,10 @@ impl Scene {
             .map(|(hit, _ray_t)| hit);
 
         let sample = match hit {
-            Some(_hit) => self.sphere_color.evaluate(hero_wavelength) / 100.0,
-            None => SpectrumSample::splat((ray.o.y + 1.0) / 200.0),
+            Some(hit) => {
+                ray.d().dot(hit.normal).abs() * self.sphere_color.evaluate(hero_wavelength) / 20.0
+            }
+            None => SpectrumSample::splat((ray.d().y() / 2.0 + 0.5).powi(9)),
         };
 
         sample * mis_weight

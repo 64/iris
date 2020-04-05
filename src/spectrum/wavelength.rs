@@ -8,6 +8,11 @@ pub const LAMBDA_RANGE_NM: f32 = LAMBDA_MAX_NM - LAMBDA_MIN_NM;
 pub struct Wavelength(f32);
 
 impl Wavelength {
+    #[cfg(test)]
+    pub fn new(lambda: f32) -> Self {
+        Self(lambda)
+    }
+
     pub fn as_nm_f32(self) -> f32 {
         self.0
     }

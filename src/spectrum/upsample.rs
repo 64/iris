@@ -131,3 +131,25 @@ fn find_interval(values: &[f32], size: usize, x: f32) -> usize {
 
     left.min(last_interval)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_upsample() {
+        let table = UpsampleTable::load();
+
+        let spectrum = table.get_spectrum([0.0, 1.0, 0.0]);
+        assert_eq!(
+            0.010374308,
+            spectrum.evaluate_single(Wavelength::new(450.0))
+        );
+        assert_eq!(
+            0.021721054,
+            spectrum.evaluate_single(Wavelength::new(460.0))
+        );
+        assert_eq!(0.95374036, spectrum.evaluate_single(Wavelength::new(520.0)));
+        assert_eq!(0.16656497, spectrum.evaluate_single(Wavelength::new(600.0)));
+    }
+}

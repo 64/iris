@@ -20,17 +20,29 @@ impl Xyz {
     }
 
     pub fn from_wavelength(wavelength: Wavelength, value: f32) -> Self {
-        let x = match_lookup(wavelength.as_nm_f32(), &CIE_X) * value;
-        let y = match_lookup(wavelength.as_nm_f32(), &CIE_Y) * value;
-        let z = match_lookup(wavelength.as_nm_f32(), &CIE_Z) * value;
-        Self { x, y, z }
+        let lambda = wavelength.as_nm_f32();
+
+        debug_assert!(lambda >= LAMBDA_MIN_NM && lambda <= LAMBDA_MAX_NM);
+        let index = (lambda as usize) - (LAMBDA_MIN_NM as usize);
+
+        unsafe {
+            Self {
+                x: *CIE_X.get_unchecked(index) * value,
+                y: *CIE_Y.get_unchecked(index) * value,
+                z: *CIE_Z.get_unchecked(index) * value,
+            }
+        }
     }
 
     pub fn to_srgb(self) -> Srgb {
         let r = 3.240479 * self.x - 1.537150 * self.y - 0.498535 * self.z;
         let g = -0.969256 * self.x + 1.875991 * self.y + 0.041556 * self.z;
         let b = 0.055648 * self.x - 0.204043 * self.y + 1.057311 * self.z;
-        Srgb::new(gamma_correct(r), gamma_correct(g), gamma_correct(b))
+        Srgb::new(
+            gamma_correct(tonemap(r)),
+            gamma_correct(tonemap(g)),
+            gamma_correct(tonemap(b)),
+        )
     }
 }
 
@@ -118,20 +130,15 @@ impl Srgb {
     }
 }
 
+fn tonemap(val: f32) -> f32 {
+    val / (1.0 + val.abs()) // Avoid division by zero
+}
+
 fn gamma_correct(val: f32) -> f32 {
     if val <= 0.0031308 {
         12.92 * val
     } else {
         1.055 * val.powf(1.0 / 2.4) - 0.055
-    }
-}
-
-// Lambda should be in nm
-fn match_lookup(lambda: f32, table: &[f32; CIE_SAMPLES]) -> f32 {
-    if lambda >= LAMBDA_MIN_NM && lambda <= LAMBDA_MAX_NM {
-        table[(lambda as usize) - (LAMBDA_MIN_NM as usize)]
-    } else {
-        0.0
     }
 }
 

@@ -13,21 +13,38 @@ pub struct Vec3<System = Global> {
 
 impl<S> Vec3<S> {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
+        let ret = Self {
             x,
             y,
             z,
             _coord: PhantomData,
-        }
+        };
+
+        ret.assert_invariants();
+
+        ret
+    }
+
+    fn assert_invariants(&self) {
+        debug_assert!(self.x.is_finite());
+        debug_assert!(self.y.is_finite());
+        debug_assert!(self.z.is_finite());
     }
 
     pub fn splat(x: f32) -> Self {
-        Self {
-            x,
-            y: x,
-            z: x,
-            _coord: PhantomData,
-        }
+        Self::new(x, x, x)
+    }
+
+    pub fn x(self) -> f32 {
+        self.x
+    }
+
+    pub fn y(self) -> f32 {
+        self.y
+    }
+
+    pub fn z(self) -> f32 {
+        self.z
     }
 
     pub fn dot(self, other: Self) -> f32 {
@@ -42,7 +59,7 @@ impl<S> Vec3<S> {
         self.len_squared().sqrt()
     }
 
-    pub fn normalized(self) -> Self {
+    pub fn normalize(self) -> Self {
         self / self.len()
     }
 
@@ -84,6 +101,7 @@ impl<S> std::ops::AddAssign for Vec3<S> {
         self.x += other.x;
         self.y += other.y;
         self.z += other.z;
+        self.assert_invariants();
     }
 }
 
@@ -100,6 +118,7 @@ impl<S> std::ops::AddAssign<f32> for Vec3<S> {
         self.x += other;
         self.y += other;
         self.z += other;
+        self.assert_invariants();
     }
 }
 
@@ -116,6 +135,7 @@ impl<S> std::ops::SubAssign for Vec3<S> {
         self.x -= other.x;
         self.y -= other.y;
         self.z -= other.z;
+        self.assert_invariants();
     }
 }
 
@@ -132,6 +152,7 @@ impl<S> std::ops::SubAssign<f32> for Vec3<S> {
         self.x -= other;
         self.y -= other;
         self.z -= other;
+        self.assert_invariants();
     }
 }
 
@@ -156,6 +177,7 @@ impl<S> std::ops::MulAssign<f32> for Vec3<S> {
         self.x *= other;
         self.y *= other;
         self.z *= other;
+        self.assert_invariants();
     }
 }
 
@@ -172,6 +194,7 @@ impl<S> std::ops::DivAssign for Vec3<S> {
         self.x /= other.x;
         self.y /= other.y;
         self.z /= other.z;
+        self.assert_invariants();
     }
 }
 
@@ -188,6 +211,7 @@ impl<S> std::ops::DivAssign<f32> for Vec3<S> {
         self.x /= other;
         self.y /= other;
         self.z /= other;
+        self.assert_invariants();
     }
 }
 
