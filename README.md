@@ -27,3 +27,4 @@ TODO:
 * Motion blur / animation
 * Real time preview
 * Own PNG / HDR code
+* PGO

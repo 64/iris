@@ -128,7 +128,7 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let progress =
             SAMPLES_TAKEN.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
-        if progress <= 0.9995 {
+        if !DONE.load(Ordering::Relaxed) {
             print!("Progress: {:>5.2}%\r", 100.0 * progress);
             std::io::stdout().flush().unwrap();
         }

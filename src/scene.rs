@@ -1,8 +1,8 @@
 use crate::{
     bsdf::{Bsdf, LambertianBsdf, SampleableBsdf},
     math::{OrdFloat, Point3, Ray},
-    sampling::{mis, Sampler},
-    shapes::{Geometry, Shape, Sphere},
+    sampling::{self, mis, Sampler},
+    shapes::{Geometry, Intersection, Shape, Sphere},
     spectrum::{
         upsample::UpsampleTable,
         ConstantSpectrum,
@@ -59,10 +59,10 @@ impl Scene {
             Sphere::new(Point3::new(0.0, -100.5, 1.0), 100.0),
             bsdf_white,
         );
-        scene.add_emissive(
-            Sphere::new(Point3::new(0.0, 0.8, -1.0), 0.8),
-            ConstantSpectrum::new(0.05),
-        );
+        // scene.add_emissive(
+        // Sphere::new(Point3::new(0.0, 0.8, -1.0), 0.8),
+        // ConstantSpectrum::new(0.005),
+        //);
 
         scene
     }
@@ -77,6 +77,17 @@ impl Scene {
         self.geometry.push(geom.into());
     }
 
+    fn intersection(&self, ray: &Ray) -> Option<(usize, Intersection)> {
+        // TODO: See if we can get a perf boost by rewriting this
+        // It should at least clean up the call stack a bit
+        self.geometry
+            .iter()
+            .enumerate()
+            .filter_map(|(i, sphere)| sphere.intersect(ray).map(|h| (i, h)))
+            .min_by_key(|(_i, (_hit, ray_t))| OrdFloat::new(*ray_t))
+            .map(|(i, (hit, _ray_t))| (i, hit))
+    }
+
     pub fn radiance(
         &self,
         mut ray: Ray,
@@ -87,87 +98,109 @@ impl Scene {
         let mut throughput = SpectrumSample::splat(1.0 / hero_wavelength.pdf());
 
         for bounces in 0..MAX_DEPTH {
-            // TODO: See if we can get a perf boost by rewriting this
-            // It should at least clean up the call stack a bit
-            let hit = self
-                .geometry
-                .iter()
-                .enumerate()
-                .filter_map(|(i, sphere)| sphere.intersect(&ray).map(|h| (i, h)))
-                .min_by_key(|(_i, (_hit, ray_t))| OrdFloat::new(*ray_t))
-                .map(|(i, (hit, _ray_t))| (i, hit));
+            if let Some((geom_index, hit)) = self.intersection(&ray) {
+                if bounces == 0
+                // || specular_bounce
+                {
+                    if let Some(emission) = self.emissives.get(&geom_index) {
+                        radiance += throughput * emission.evaluate(hero_wavelength);
+                    }
+                }
 
-            match hit {
-                Some((geom_index, hit)) => {
-                    // if bounces == 0
-                    // || specular_bounce
-                    {
-                        if let Some(emission) = self.emissives.get(&geom_index) {
-                            radiance += throughput * emission.evaluate(hero_wavelength);
-                        }
+                if let Some(bsdf) = self.materials.get(&geom_index) {
+                    let shading_wo = hit.world_to_shading(-ray.d());
+
+                    // Calculate direct lighting radiance via NEE
+                    let light_index = sampler.gen_array_index(self.emissives.len() + 1);
+
+                    if light_index == self.emissives.len() {
+                        // Sample background
+                        // Get ray
+                        let light_dir_local =
+                            sampling::cosine_unit_hemisphere(sampler.gen_0_1(), sampler.gen_0_1());
+
+                        let light_dir = hit.shading_to_world(light_dir_local);
+                        let cos_theta = light_dir_local.z().abs();
+                        let pdf = sampling::pdf_cosine_unit_hemisphere(cos_theta);
+
+                        if pdf != 0.0
+                            && self
+                                .intersection(&Ray::new(hit.point + hit.normal * 0.001, light_dir))
+                                .is_none()
+                        {
+                            let bsdf = bsdf.evaluate(light_dir_local, shading_wo, hero_wavelength);
+                            let mis_weight = 0.25;
+                            let le = SpectrumSample::splat((light_dir.y() / 3.0 + 0.5).powi(9));
+
+                            let integrand = le
+                                * bsdf
+                                * (cos_theta * mis_weight
+                                    / pdf
+                                    / (self.emissives.len() + 1) as f32);
+
+                            radiance += throughput * integrand;
+                        } 
+                    } else {
+                        // Sample the emission
+                        assert_ne!(light_index, geom_index);
                     }
 
-                    if let Some(bsdf) = self.materials.get(&geom_index) {
-                        // TODO: Accumulate direct lighting radiance via NEE
-                        // Select one light
-                        // let _light_index = sampler.gen_array_index(self.emissives.len());
+                    // Calculate indirect lighting
+                    let (bsdf_sampled_wi, path_pdfs) =
+                        bsdf.sample(shading_wo, hero_wavelength, sampler);
 
-                        // Sample point on the light
+                    if path_pdfs[0] == 0.0 {
+                        break;
+                    }
 
-                        // Evaluate BSDF
-                        let shading_wo = hit.world_to_shading(-ray.d());
+                    let bsdf = bsdf.evaluate(bsdf_sampled_wi, shading_wo, hero_wavelength);
+                    let cos_theta = bsdf_sampled_wi.z().abs();
+                    let mis_weight = mis::hwss_weight(hero_wavelength, path_pdfs);
 
-                        let (bsdf_sampled_wi, path_pdfs) =
-                            bsdf.sample(shading_wo, hero_wavelength, sampler);
+                    throughput *= bsdf * (cos_theta * mis_weight / path_pdfs[0]);
 
-                        if path_pdfs[0] == 0.0 {
+                    // Spawn the next ray
+                    ray = Ray::new(
+                        hit.point + hit.normal * 0.01,
+                        hit.shading_to_world(bsdf_sampled_wi),
+                    );
+
+                    // Russian roulette
+                    if bounces > MIN_DEPTH {
+                        let p = throughput.x();
+                        if sampler.gen_0_1() > p {
                             break;
                         }
 
-                        let bsdf = bsdf.evaluate(bsdf_sampled_wi, shading_wo, hero_wavelength);
-                        let cos_theta = bsdf_sampled_wi.z().abs();
-                        let mis_weight = mis::hwss_weight(hero_wavelength, path_pdfs);
-
-                        throughput *= bsdf * (cos_theta * mis_weight / path_pdfs[0]);
-
-                        // Spawn the next ray
-                        ray = Ray::new(
-                            hit.point + hit.normal * 0.01,
-                            hit.shading_to_world(bsdf_sampled_wi),
-                        );
-
-                        // Russian roulette
-                        if bounces > MIN_DEPTH {
-                            let p = throughput.x();
-                            if sampler.gen_0_1() > p {
-                                break;
-                            }
-
-                            throughput /= SpectrumSample::splat(p);
-                        }
-                    } else {
-                        // Hit some purely emissive object
-                        break;
+                        throughput /= SpectrumSample::splat(p);
                     }
-                }
-                None => {
-                    // No hit, return background color
-                    // let d = ray.d();
-
-                    // let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
-                    // let v = 0.5 - d.y().asin() / std::f32::consts::PI;
-
-                    // let x = (u.clamp(0.0, 1.0) * 4095.99) as usize;
-                    // let y = (v.clamp(0.0, 1.0) * 2047.99) as usize;
-
-                    // radiance +=
-                    // 0.01 * throughput * self.env_map[y * 4096 + x].evaluate(hero_wavelength);
-
-                    radiance +=
-                        throughput * SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9));
+                } else {
+                    // Hit some purely emissive object
                     break;
                 }
+            } else if bounces == 0
+            // || specular
+            {
+                // Hit background and we need to accumulate it
+                radiance += throughput * SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9));
+                break;
+            } else {
+                // Hit background but we don't need to accumulate it
+                break;
             }
+
+            // Old code used for sampling the env map
+            // let d = ray.d();
+
+            // let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
+            // let v = 0.5 - d.y().asin() / std::f32::consts::PI;
+
+            // let x = (u.clamp(0.0, 1.0) * 4095.99) as usize;
+            // let y = (v.clamp(0.0, 1.0) * 2047.99) as usize;
+
+            // radiance +=
+            // 0.01 * throughput * self.env_map[y * 4096 +
+            // x].evaluate(hero_wavelength);
         }
 
         radiance
