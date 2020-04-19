@@ -1,4 +1,4 @@
-use crate::sampler::Sampler;
+use crate::sampling::Sampler;
 
 pub const LAMBDA_MIN_NM: f32 = 380.0;
 pub const LAMBDA_MAX_NM: f32 = 700.0;

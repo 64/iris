@@ -9,7 +9,7 @@ pub use sample::SpectrumSample;
 pub use wavelength::Wavelength;
 
 pub use constant::ConstantSpectrum;
-pub use upsample::UpsampledSpectrum;
+pub use upsample::{UpsampledHdrSpectrum, UpsampledSpectrum};
 
 #[enum_dispatch]
 pub trait SampleableSpectrum {
@@ -21,7 +21,14 @@ pub trait SampleableSpectrum {
 }
 
 #[enum_dispatch(SampleableSpectrum)]
+#[derive(Debug, Clone)]
 pub enum Spectrum {
     UpsampledSpectrum,
     ConstantSpectrum,
+}
+
+impl Default for Spectrum {
+    fn default() -> Self {
+        Self::from(ConstantSpectrum::new(0.0))
+    }
 }

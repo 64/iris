@@ -1,28 +1,23 @@
-use super::{HitInfo, Shape};
-use crate::math::{Point3, Ray, Vec3};
-use bvh::{
-    aabb::{Bounded, AABB},
-    bounding_hierarchy::BHShape,
+use crate::{
+    math::{Point3, Ray, Vec3},
+    shapes::{Intersection, Shape},
 };
 
+#[derive(Debug, Clone)]
 pub struct Sphere {
     position: Point3,
     radius: f32,
-    node_index: usize,
 }
 
 impl Sphere {
     pub fn new(position: Point3, radius: f32) -> Self {
-        Self {
-            position,
-            radius,
-            node_index: 0,
-        }
+        Self { position, radius }
     }
 }
 
 impl Shape for Sphere {
-    fn intersect(&self, ray: &Ray) -> Option<(HitInfo, f32)> {
+    // TODO: Clean up
+    fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)> {
         let oc = ray.o() - self.position;
         let a = ray.d().len_squared();
         let half_b = ray.d().dot(oc);
@@ -34,10 +29,15 @@ impl Shape for Sphere {
             let temp = (-half_b - root) / a;
             if temp > 0.0 {
                 let point = ray.point_at(temp);
+                let normal = (point - self.position) / self.radius;
+                let tangeant = Vec3::new(0.0, 1.0, 0.0).cross(normal).normalize();
+                let bitangeant = normal.cross(tangeant);
                 return Some((
-                    HitInfo {
+                    Intersection {
                         point,
-                        normal: (self.position - point).normalize(),
+                        normal,
+                        tangeant,
+                        bitangeant,
                     },
                     temp,
                 ));
@@ -46,10 +46,15 @@ impl Shape for Sphere {
             let temp = (-half_b + root) / a;
             if temp > 0.0 {
                 let point = ray.point_at(temp);
+                let normal = (point - self.position) / self.radius;
+                let tangeant = Vec3::new(0.0, 1.0, 0.0).cross(normal).normalize();
+                let bitangeant = normal.cross(tangeant);
                 return Some((
-                    HitInfo {
+                    Intersection {
                         point,
-                        normal: (self.position - point).normalize(),
+                        normal,
+                        tangeant,
+                        bitangeant,
                     },
                     temp,
                 ));
@@ -57,24 +62,5 @@ impl Shape for Sphere {
         }
 
         None
-    }
-}
-
-impl Bounded for Sphere {
-    fn aabb(&self) -> AABB {
-        let half_size = Vec3::new(self.radius, self.radius, self.radius);
-        let min = self.position - half_size;
-        let max = self.position + half_size;
-        AABB::with_bounds(min.to_nalgebra(), max.to_nalgebra())
-    }
-}
-
-impl BHShape for Sphere {
-    fn set_bh_node_index(&mut self, index: usize) {
-        self.node_index = index;
-    }
-
-    fn bh_node_index(&self) -> usize {
-        self.node_index
     }
 }

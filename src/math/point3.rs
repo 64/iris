@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use super::{Global, Vec3};
+use super::{Vec3, World};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Point3<System = Global> {
+pub struct Point3<System = World> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
@@ -52,10 +52,6 @@ impl<S> Point3<S> {
 
     pub fn to_vec(self) -> Vec3<S> {
         Vec3::new(self.x(), self.y(), self.z())
-    }
-
-    pub fn to_nalgebra(self) -> bvh::nalgebra::Point3<f32> {
-        bvh::nalgebra::Point3::new(self.x(), self.y(), self.z())
     }
 }
 

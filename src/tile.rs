@@ -6,7 +6,7 @@ use std::{
 use crate::{
     color::Xyz,
     math::{Point3, Ray, Vec3},
-    sampler::Sampler,
+    sampling::Sampler,
     spectrum::Wavelength,
     Render,
 };
@@ -23,6 +23,7 @@ pub struct TileData {
     pub height: usize,
     pub pixel_x: usize,
     pub pixel_y: usize,
+    pub distance_from_center: f32,
     pub remaining_samples: usize,
     pub accum_buffer: Vec<Xyz>,
     pub temp_buffer: Vec<u32>,
@@ -51,8 +52,16 @@ impl TileData {
         let pixel_start_x = tile_x * tile_width;
         let pixel_start_y = tile_y * tile_height;
 
+        let pixel_center_x = (pixel_start_x + this_tile_width / 2) as i32;
+        let pixel_center_y = (pixel_start_y + this_tile_height / 2) as i32;
+        let distance_from_center_x = (pixel_center_x - render.width as i32 / 2) as f32;
+        let distance_from_center_y = (pixel_center_y - render.height as i32 / 2) as f32;
+        let distance_from_center =
+            (distance_from_center_x.powi(2) + distance_from_center_y.powi(2)).sqrt();
+
         Some(TileData {
             idx,
+            distance_from_center,
             width: this_tile_width,
             height: this_tile_height,
             pixel_x: pixel_start_x,
@@ -125,28 +134,28 @@ fn get_pixel_color(
 
     let weight = 1.0 / render.spp as f32;
 
-    let xyz_sum = (0..samples_this_iter)
-        .map(|i| {
-            let mut sampler = Sampler::new(x_abs, y_abs, i + samples_so_far, SEED);
+    let mut xyz_sum = Xyz::new(0.0, 0.0, 0.0);
 
-            let hero_wavelength = Wavelength::sample(&mut sampler);
+    for i in 0..samples_this_iter {
+        let mut sampler = Sampler::new(x_abs, y_abs, i + samples_so_far, SEED);
 
-            let jitter_clip = Vec3::new(
-                0.5 * sampler.gen_0_1() / render.width as f32,
-                0.5 * sampler.gen_0_1() / render.height as f32,
-                0.0,
-            );
+        let hero_wavelength = Wavelength::sample(&mut sampler);
 
-            let target_world = &render.camera.clip_to_world * (pixel_center_clip + jitter_clip);
-            let origin_world = render.camera.position;
-            let ray = Ray::new(origin_world, target_world - origin_world);
+        let jitter_clip = Vec3::new(
+            0.5 * sampler.gen_0_1() / render.width as f32,
+            0.5 * sampler.gen_0_1() / render.height as f32,
+            0.0,
+        );
 
-            render
-                .scene
-                .trace_ray(ray, hero_wavelength, &mut sampler)
-                .to_xyz(hero_wavelength)
-        })
-        .sum::<Xyz>();
+        let target_world = &render.camera.clip_to_world * (pixel_center_clip + jitter_clip);
+        let origin_world = render.camera.position;
+        let ray = Ray::new(origin_world, target_world - origin_world);
+
+        xyz_sum += render
+            .scene
+            .radiance(ray, hero_wavelength, &mut sampler)
+            .to_xyz(hero_wavelength);
+    }
 
     xyz_sum * weight
 }
@@ -161,12 +170,18 @@ impl Eq for TileData {}
 
 impl PartialOrd for TileData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.remaining_samples.partial_cmp(&other.remaining_samples)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for TileData {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.remaining_samples.cmp(&other.remaining_samples)
+        // Render from the inside out
+        self.remaining_samples.cmp(&other.remaining_samples).then(
+            self.distance_from_center
+                .partial_cmp(&other.distance_from_center)
+                .unwrap()
+                .reverse(),
+        )
     }
 }

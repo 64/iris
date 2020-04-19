@@ -36,6 +36,11 @@ impl Sampler {
         debug_assert!(lower < upper);
         self.gen_0_1() * (upper - lower) + lower
     }
+
+    pub fn gen_array_index(&mut self, len: usize) -> usize {
+        assert!(len > 0);
+        self.gen_range(0.0, len as f32 - 0.5) as usize
+    }
 }
 
 fn hash_u32(n: u32, seed: u32) -> u32 {

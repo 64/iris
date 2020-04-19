@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-use super::{Global, Point3, Vec3};
+use super::{Point3, Vec3, World};
 
 #[derive(Debug, Clone)]
-pub struct Ray<System = Global> {
+pub struct Ray<System = World> {
     o: Point3<System>,
     d: Vec3<System>,
     t_max: f32,
@@ -32,10 +32,5 @@ impl<S> Ray<S> {
 
     pub fn point_at(&self, t: f32) -> Point3<S> {
         self.o + self.d * t
-    }
-
-    #[inline(always)]
-    pub fn to_nalgebra(&self) -> bvh::ray::Ray {
-        bvh::ray::Ray::new(self.o.to_nalgebra(), self.d.to_nalgebra())
     }
 }

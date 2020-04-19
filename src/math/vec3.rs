@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use super::Global;
+use super::World;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
-pub struct Vec3<System = Global> {
+pub struct Vec3<System = World> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
@@ -51,6 +51,14 @@ impl<S> Vec3<S> {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    pub fn cross(self, other: Self) -> Self {
+        Vec3::new(
+            self.y() * other.z() - self.z() * other.y(),
+            self.z() * other.x() - self.x() * other.z(),
+            self.x() * other.y() - self.y() * other.x(),
+        )
+    }
+
     pub fn len_squared(self) -> f32 {
         self.dot(self)
     }
@@ -61,10 +69,6 @@ impl<S> Vec3<S> {
 
     pub fn normalize(self) -> Self {
         self / self.len()
-    }
-
-    pub fn to_nalgebra(self) -> bvh::nalgebra::Vector3<f32> {
-        bvh::nalgebra::Vector3::new(self.x, self.y, self.z)
     }
 }
 

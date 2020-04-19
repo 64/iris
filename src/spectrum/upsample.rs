@@ -8,6 +8,7 @@ pub struct UpsampleTable {
     resolution: usize,
 }
 
+#[derive(Debug, Clone)]
 pub struct UpsampledSpectrum {
     coefficients: [f32; 3],
 }
@@ -22,7 +23,36 @@ impl SampleableSpectrum for UpsampledSpectrum {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct UpsampledHdrSpectrum {
+    coefficients: [f32; 3],
+    hdr_coefficient: f32,
+}
+
+impl SampleableSpectrum for UpsampledHdrSpectrum {
+    fn evaluate_single(&self, lambda: Wavelength) -> f32 {
+        let x = self.coefficients[0]
+            .mul_add(lambda.as_nm_f32(), self.coefficients[1])
+            .mul_add(lambda.as_nm_f32(), self.coefficients[2]);
+        let y = 1.0 / x.mul_add(x, 1.0).sqrt();
+        self.hdr_coefficient * (0.5 * x).mul_add(y, 0.5)
+    }
+}
+
 impl UpsampleTable {
+    #[allow(unused)]
+    pub fn get_spectrum_hdr(&self, rgb: [f32; 3]) -> UpsampledHdrSpectrum {
+        let max = rgb[0].max(rgb[1]).max(rgb[2]).max(1.0);
+
+        UpsampledHdrSpectrum {
+            coefficients: self
+                .get_spectrum([rgb[0] / max, rgb[1] / max, rgb[2] / max])
+                .coefficients,
+            hdr_coefficient: max.min(100.0), /* Remove this hack once we importance sample the
+                                              * env map */
+        }
+    }
+
     // TODO: Make not C-ish
     pub fn get_spectrum(&self, rgb: [f32; 3]) -> UpsampledSpectrum {
         let mut i = 0;

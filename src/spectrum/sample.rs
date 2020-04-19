@@ -94,8 +94,8 @@ impl std::fmt::Debug for SpectrumSample {
         f.debug_struct("SpectrumSample")
             .field("x", &self.x())
             .field("y", &self.y())
-            .field("z", &self.y())
-            .field("w", &self.y())
+            .field("z", &self.z())
+            .field("w", &self.w())
             .finish()
     }
 }
@@ -121,6 +121,54 @@ impl std::ops::Mul<f32> for SpectrumSample {
             }
             .assert_invariants()
         }
+    }
+}
+
+impl std::ops::Mul<SpectrumSample> for SpectrumSample {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        unsafe {
+            SpectrumSample {
+                data: _mm_mul_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        }
+    }
+}
+
+impl std::ops::Add<SpectrumSample> for SpectrumSample {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        unsafe {
+            SpectrumSample {
+                data: _mm_add_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        }
+    }
+}
+
+impl std::ops::AddAssign<SpectrumSample> for SpectrumSample {
+    fn add_assign(&mut self, other: SpectrumSample) {
+        *self = unsafe {
+            SpectrumSample {
+                data: _mm_add_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        };
+    }
+}
+
+impl std::ops::MulAssign<SpectrumSample> for SpectrumSample {
+    fn mul_assign(&mut self, other: SpectrumSample) {
+        *self = unsafe {
+            SpectrumSample {
+                data: _mm_mul_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        };
     }
 }
 
@@ -154,6 +202,17 @@ impl std::ops::Div<f32> for SpectrumSample {
             data: unsafe { _mm_div_ps(self.data, _mm_set1_ps(other)) },
         }
         .assert_invariants()
+    }
+}
+
+impl std::ops::DivAssign<SpectrumSample> for SpectrumSample {
+    fn div_assign(&mut self, other: SpectrumSample) {
+        *self = unsafe {
+            SpectrumSample {
+                data: _mm_div_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        };
     }
 }
 

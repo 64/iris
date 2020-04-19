@@ -4,3 +4,4 @@ flamegraph.svg
 perf.*
 crates/**/*/target
 callgrind.*
+data/*.hdr

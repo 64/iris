@@ -25,6 +25,8 @@ impl Xyz {
         debug_assert!(lambda >= LAMBDA_MIN_NM && lambda <= LAMBDA_MAX_NM);
         let index = (lambda as usize) - (LAMBDA_MIN_NM as usize);
 
+        // TODO: We should be able to use SIMD here (_mm_i32gather_ps)
+
         unsafe {
             Self {
                 x: *CIE_X.get_unchecked(index) * value,
@@ -102,12 +104,6 @@ impl std::ops::Div<f32> for Xyz {
     }
 }
 
-impl std::iter::Sum<Xyz> for Xyz {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Xyz::new(0.0, 0.0, 0.0), std::ops::Add::add)
-    }
-}
-
 #[derive(Debug)]
 pub struct Srgb {
     r: f32,
@@ -131,7 +127,8 @@ impl Srgb {
 }
 
 fn tonemap(val: f32) -> f32 {
-    val / (1.0 + val.abs()) // Avoid division by zero
+    // Avoid division by zero
+    val / (1.0 + val.abs())
 }
 
 fn gamma_correct(val: f32) -> f32 {

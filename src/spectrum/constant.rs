@@ -1,5 +1,6 @@
 use crate::spectrum::{SampleableSpectrum, Wavelength};
 
+#[derive(Debug, Clone)]
 pub struct ConstantSpectrum {
     value: f32,
 }

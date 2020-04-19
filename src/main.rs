@@ -4,8 +4,9 @@ use minifb::{Key, Window, WindowOptions};
 
 use std::{
     collections::BinaryHeap,
+    io::Write,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
         Mutex,
         RwLock,
@@ -13,10 +14,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod bsdf;
 mod camera;
 mod color;
 mod math;
-mod sampler;
+mod sampling;
 mod scene;
 mod shapes;
 mod spectrum;
@@ -37,9 +39,10 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 200;
+const TOTAL_SPP: usize = 100;
 
 static DONE: AtomicBool = AtomicBool::new(false);
+static SAMPLES_TAKEN: AtomicUsize = AtomicUsize::new(0);
 
 fn main() {
     let render = Arc::new(Render {
@@ -54,6 +57,15 @@ fn main() {
         ),
     });
 
+    let tile_priorities = Arc::new(Mutex::new(
+        // TODO: Make this nice
+        (0..)
+            .map(|idx| TileData::new(&render, idx))
+            .take_while(|t| t.is_some())
+            .map(|t| t.unwrap())
+            .collect::<BinaryHeap<TileData>>(),
+    ));
+
     let mut window = Window::new(
         "Iris",
         WIDTH,
@@ -65,26 +77,31 @@ fn main() {
     )
     .expect("failed to create window");
 
-    let tile_priorities = Arc::new(Mutex::new(
-        // TODO: Make this nice
-        (0..)
-            .map(|idx| TileData::new(&render, idx))
-            .take_while(|t| t.is_some())
-            .map(|t| t.unwrap())
-            .collect::<BinaryHeap<TileData>>(),
-    ));
+    let num_threads = std::env::var("NTHREADS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or_else(num_cpus::get);
+
+    println!("Starting render...");
 
     let start = Instant::now();
 
-    for _cpu in 0..num_cpus::get() {
+    for _cpu in 0..num_threads {
         let tile_priorities = tile_priorities.clone();
         let render = render.clone();
         std::thread::spawn(move || loop {
             let popped = tile_priorities.lock().unwrap().pop();
             match popped {
                 Some(tile) => {
+                    let samples_before = tile.remaining_samples;
                     let tile = tile.render(&render);
-                    if tile.remaining_samples > 0 {
+                    let samples_after = tile.remaining_samples;
+                    SAMPLES_TAKEN.fetch_add(
+                        (samples_before - samples_after) * tile.width * tile.height,
+                        Ordering::Relaxed,
+                    );
+
+                    if samples_after > 0 {
                         tile_priorities.lock().unwrap().push(tile);
                     }
                 }
@@ -94,7 +111,7 @@ fn main() {
                         println!(
                             "Done in {}s ({}m ray/s)",
                             elapsed,
-                            ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed)
+                            ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed),
                         );
                     }
                     break;
@@ -103,16 +120,21 @@ fn main() {
         });
     }
 
-    let target_rate = std::time::Duration::from_micros(33333); // 30fps
+    let target_rate = std::time::Duration::from_micros(200000); // 5fps
     window.limit_update_rate(None);
 
     let mut prev_time = Instant::now();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        let progress =
+            SAMPLES_TAKEN.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
+        if progress <= 0.9995 {
+            print!("Progress: {:>5.2}%\r", 100.0 * progress);
+            std::io::stdout().flush().unwrap();
+        }
+
         // TODO: Use some kind of sleeping mutex so that we only update the screen when
         // the render buffer has changed?
-
-        // Wait for 30fps
         let target_rate = target_rate.as_secs_f64();
         let current_time = Instant::now();
         let delta = current_time

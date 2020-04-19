@@ -1,15 +1,20 @@
 #![allow(dead_code)]
 
-use super::{Point3, Ray, Vec3};
+use super::{Point3, Ray, Vec3, World};
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Matrix {
+pub struct Matrix<U = World, V = World> {
     m: [[f32; 4]; 4],
+    _coord: PhantomData<(U, V)>,
 }
 
-impl Matrix {
+impl<U, V> Matrix<U, V> {
     pub const fn new(m: [[f32; 4]; 4]) -> Self {
-        Self { m }
+        Self {
+            m,
+            _coord: PhantomData,
+        }
     }
 
     pub fn id() -> Self {
@@ -20,6 +25,7 @@ impl Matrix {
                 [0.0, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.0, 1.0],
             ],
+            _coord: PhantomData,
         }
     }
 
@@ -39,6 +45,7 @@ impl Matrix {
                 ],
                 [0.0, 0.0, 1.0, 0.0],
             ],
+            _coord: PhantomData,
         }
     }
 
@@ -50,22 +57,24 @@ impl Matrix {
                 [0.0, 0.0, 1.0, dir.z()],
                 [0.0, 0.0, 0.0, 1.0],
             ],
+            _coord: PhantomData,
         }
     }
 
-    pub fn inverse(&self) -> Self {
+    pub fn inverse(&self) -> Matrix<V, U> {
         // Adapted from https://github.com/mmp/pbrt-v3/blob/master/src/core/transform.cpp#L82
         let mut indxc = [0; 4];
         let mut indxr = [0; 4];
         let mut ipiv = [0; 4];
 
-        let swap_elems = |matrix: &mut Matrix, a: usize, b, x: usize, y| {
+        let swap_elems = |matrix: &mut Matrix<V, U>, a: usize, b, x: usize, y| {
             let temp = matrix.m[a][b];
             matrix.m[a][b] = matrix.m[x][y];
             matrix.m[x][y] = temp;
         };
 
-        let mut inv = self.clone();
+        let mut inv = Matrix::<V, U>::id();
+        std::mem::replace(&mut inv.m, self.m);
 
         for i in 0..4 {
             let mut irow = 0;
@@ -130,12 +139,24 @@ impl Matrix {
 
         inv
     }
+
+    pub fn coordinate_system(u: Vec3<V>, v: Vec3<V>, w: Vec3<V>, point: Point3<V>) -> Self {
+        Self {
+            m: [
+                [u.x(), v.x(), w.x(), point.x()],
+                [u.x(), v.x(), w.x(), point.x()],
+                [u.x(), v.x(), w.x(), point.x()],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+            _coord: PhantomData,
+        }
+    }
 }
 
-impl<S> std::ops::Mul<Vec3<S>> for &'_ Matrix {
-    type Output = Vec3<S>;
+impl<U, V> std::ops::Mul<Vec3<U>> for &'_ Matrix<U, V> {
+    type Output = Vec3<V>;
 
-    fn mul(self, other: Vec3<S>) -> Vec3<S> {
+    fn mul(self, other: Vec3<U>) -> Vec3<V> {
         Vec3::new(
             self.m[0][0] * other.x() + self.m[0][1] * other.y() + self.m[0][2] * other.z(),
             self.m[1][0] * other.x() + self.m[1][1] * other.y() + self.m[1][2] * other.z(),
@@ -144,10 +165,10 @@ impl<S> std::ops::Mul<Vec3<S>> for &'_ Matrix {
     }
 }
 
-impl<S> std::ops::Mul<Point3<S>> for &'_ Matrix {
-    type Output = Point3<S>;
+impl<U, V> std::ops::Mul<Point3<U>> for &'_ Matrix<U, V> {
+    type Output = Point3<V>;
 
-    fn mul(self, other: Point3<S>) -> Point3<S> {
+    fn mul(self, other: Point3<U>) -> Point3<V> {
         let w = self.m[3][0] * other.x()
             + self.m[3][1] * other.y()
             + self.m[3][2] * other.z()
@@ -174,18 +195,18 @@ impl<S> std::ops::Mul<Point3<S>> for &'_ Matrix {
     }
 }
 
-impl<S> std::ops::Mul<Ray<S>> for &'_ Matrix {
-    type Output = Ray<S>;
+impl<U, V> std::ops::Mul<Ray<U>> for &'_ Matrix<U, V> {
+    type Output = Ray<V>;
 
-    fn mul(self, other: Ray<S>) -> Ray<S> {
+    fn mul(self, other: Ray<U>) -> Ray<V> {
         Ray::new(self * other.o(), self * other.d())
     }
 }
 
-impl std::ops::Mul<&'_ Matrix> for &'_ Matrix {
-    type Output = Matrix;
+impl<U, V, W> std::ops::Mul<&'_ Matrix<U, V>> for &'_ Matrix<V, W> {
+    type Output = Matrix<U, W>;
 
-    fn mul(self, other: &Matrix) -> Matrix {
+    fn mul(self, other: &Matrix<U, V>) -> Matrix<U, W> {
         let mut m = [[0.0; 4]; 4];
 
         for i in 0..4 {
@@ -196,13 +217,16 @@ impl std::ops::Mul<&'_ Matrix> for &'_ Matrix {
             }
         }
 
-        Matrix { m }
+        Matrix {
+            m,
+            _coord: PhantomData,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{super::Global, *};
+    use super::{super::World, *};
 
     #[test]
     fn test_matrix_multiply() {
@@ -212,15 +236,15 @@ mod tests {
         let id2 = id.inverse();
         assert_eq!(id, id2);
 
-        let v: Vec3<Global> = Vec3::new(1.0, 2.0, 3.0);
-        let p: Point3<Global> = Point3::new(1.0, 2.0, 3.0);
+        let v: Vec3<World> = Vec3::new(1.0, 2.0, 3.0);
+        let p: Point3<World> = Point3::new(1.0, 2.0, 3.0);
 
         assert_eq!(v, &id * v);
         assert_eq!(p, &id * p);
 
         let trans = Matrix::translation(Vec3::new(2.0, 0.0, 1.0));
-        let p1: Point3<Global> = Point3::new(0.0, 0.0, 0.0);
-        let p2: Point3<Global> = Point3::new(2.0, 0.0, 1.0);
+        let p1: Point3<World> = Point3::new(0.0, 0.0, 0.0);
+        let p2: Point3<World> = Point3::new(2.0, 0.0, 1.0);
 
         assert_eq!(&trans * p1, p2);
     }
