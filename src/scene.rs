@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-use std::collections::HashMap;
+use std::{collections::HashMap, f32::INFINITY};
 
 const MAX_DEPTH: u32 = 30;
 const MIN_DEPTH: u32 = 3;
@@ -24,7 +24,7 @@ pub struct Scene {
     emissives: HashMap<usize, Spectrum>,
     materials: HashMap<usize, Bsdf>,
     geometry: Vec<Geometry>,
-    _env_map: Vec<UpsampledHdrSpectrum>,
+    env_map: Vec<UpsampledHdrSpectrum>,
 }
 
 impl Scene {
@@ -33,19 +33,20 @@ impl Scene {
 
         let upsample_table = UpsampleTable::load();
 
-        // use image::hdr::HdrDecoder;
-        // use std::{fs::File, io::BufReader};
-        // let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"),
-        // "/data/sculpture_exhibition_4k.hdr"); let env_map_path =
-        // concat!(env!("CARGO_MANIFEST_DIR"), "/data/cloud_layers_4k.hdr");
-        // scene.env_map =
-        // HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
-        //.unwrap()
-        //.read_image_hdr()
-        //.unwrap()
-        //.into_iter()
-        //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
-        //.collect();
+        use image::hdr::HdrDecoder;
+        use std::{fs::File, io::BufReader};
+        let env_map_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/sculpture_exhibition_4k.hdr"
+        );
+        let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/cloud_layers_4k.hdr");
+        scene.env_map = HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
+            .unwrap()
+            .read_image_hdr()
+            .unwrap()
+            .into_iter()
+            .map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
+            .collect();
 
         let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
         let bsdf_green = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]));
@@ -59,10 +60,10 @@ impl Scene {
             Sphere::new(Point3::new(0.0, -100.5, 1.0), 100.0),
             bsdf_white,
         );
-        // scene.add_emissive(
-        // Sphere::new(Point3::new(0.0, 0.8, -1.0), 0.8),
-        // ConstantSpectrum::new(0.005),
-        //);
+        scene.add_emissive(
+            Sphere::new(Point3::new(0.0, 1.3, 1.0), 0.5),
+            ConstantSpectrum::new(0.05),
+        );
 
         scene
     }
@@ -77,15 +78,33 @@ impl Scene {
         self.geometry.push(geom.into());
     }
 
-    fn intersection(&self, ray: &Ray) -> Option<(usize, Intersection)> {
+    fn background_emission(&self, ray: &Ray, hero_wavelength: Wavelength) -> SpectrumSample {
+        let d = ray.d();
+
+        let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
+        let v = 0.5 - d.y().asin() / std::f32::consts::PI;
+
+        let x = (u.clamp(0.0, 1.0) * 4095.99) as usize;
+        let y = (v.clamp(0.0, 1.0) * 2047.99) as usize;
+
+        0.001 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
+        // SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9))
+    }
+
+    fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(usize, Intersection)> {
         // TODO: See if we can get a perf boost by rewriting this
         // It should at least clean up the call stack a bit
         self.geometry
             .iter()
             .enumerate()
             .filter_map(|(i, sphere)| sphere.intersect(ray).map(|h| (i, h)))
+            .filter(|(_, (_, ray_t))| *ray_t <= max_t)
             .min_by_key(|(_i, (_hit, ray_t))| OrdFloat::new(*ray_t))
             .map(|(i, (hit, _ray_t))| (i, hit))
+    }
+
+    fn nth_light(&self, n: usize) -> Option<(&usize, &Spectrum)> {
+        self.emissives.iter().skip(n).next()
     }
 
     pub fn radiance(
@@ -98,7 +117,7 @@ impl Scene {
         let mut throughput = SpectrumSample::splat(1.0 / hero_wavelength.pdf());
 
         for bounces in 0..MAX_DEPTH {
-            if let Some((geom_index, hit)) = self.intersection(&ray) {
+            if let Some((geom_index, hit)) = self.intersection(&ray, INFINITY) {
                 if bounces == 0
                 // || specular_bounce
                 {
@@ -120,29 +139,48 @@ impl Scene {
                             sampling::cosine_unit_hemisphere(sampler.gen_0_1(), sampler.gen_0_1());
 
                         let light_dir = hit.shading_to_world(light_dir_local);
+                        let light_ray = Ray::new(hit.point + hit.normal * 0.001, light_dir);
                         let cos_theta = light_dir_local.z().abs();
                         let pdf = sampling::pdf_cosine_unit_hemisphere(cos_theta);
 
-                        if pdf != 0.0
-                            && self
-                                .intersection(&Ray::new(hit.point + hit.normal * 0.001, light_dir))
-                                .is_none()
-                        {
+                        if pdf != 0.0 && self.intersection(&light_ray, INFINITY).is_none() {
                             let bsdf = bsdf.evaluate(light_dir_local, shading_wo, hero_wavelength);
                             let mis_weight = 0.25;
-                            let le = SpectrumSample::splat((light_dir.y() / 3.0 + 0.5).powi(9));
+                            let le = self.background_emission(&light_ray, hero_wavelength);
 
-                            let integrand = le
+                            radiance += le
+                                * throughput
                                 * bsdf
                                 * (cos_theta * mis_weight
                                     / pdf
                                     / (self.emissives.len() + 1) as f32);
-
-                            radiance += throughput * integrand;
-                        } 
-                    } else {
+                        }
+                    } else if let Some((&light_geom_index, light_spectrum)) =
+                        self.nth_light(light_index)
+                    {
                         // Sample the emission
-                        assert_ne!(light_index, geom_index);
+                        assert_ne!(light_geom_index, geom_index);
+
+                        let (light_point, light_pdf) =
+                            self.geometry[light_geom_index].sample(hit.point, sampler);
+                        let hit_point = hit.point + hit.normal * 0.001;
+                        let ray_to_light = Ray::new(hit_point, light_point - hit_point);
+                        let max_t = (light_point - hit_point).len();
+
+                        if light_pdf != 0.0 && self.intersection(&ray_to_light, max_t).is_none() {
+                            let shading_wi = hit.world_to_shading(ray_to_light.d());
+                            let bsdf = bsdf.evaluate(shading_wi, shading_wo, hero_wavelength);
+                            let mis_weight = 0.25;
+                            let cos_theta = shading_wi.z().abs();
+                            let le = light_spectrum.evaluate(hero_wavelength);
+
+                            radiance += le
+                                * throughput
+                                * bsdf
+                                * (cos_theta * mis_weight
+                                    / light_pdf
+                                    / (self.emissives.len() + 1) as f32);
+                        }
                     }
 
                     // Calculate indirect lighting
@@ -181,26 +219,12 @@ impl Scene {
             } else if bounces == 0
             // || specular
             {
-                // Hit background and we need to accumulate it
-                radiance += throughput * SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9));
+                radiance += throughput * self.background_emission(&ray, hero_wavelength);
                 break;
             } else {
                 // Hit background but we don't need to accumulate it
                 break;
             }
-
-            // Old code used for sampling the env map
-            // let d = ray.d();
-
-            // let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
-            // let v = 0.5 - d.y().asin() / std::f32::consts::PI;
-
-            // let x = (u.clamp(0.0, 1.0) * 4095.99) as usize;
-            // let y = (v.clamp(0.0, 1.0) * 2047.99) as usize;
-
-            // radiance +=
-            // 0.01 * throughput * self.env_map[y * 4096 +
-            // x].evaluate(hero_wavelength);
         }
 
         radiance

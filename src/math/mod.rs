@@ -16,6 +16,9 @@ pub use vec3::*;
 pub struct World;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Local;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Clip;
 
 #[derive(Debug, Copy, Clone, PartialEq)]

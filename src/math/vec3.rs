@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::World;
+use super::{World, Point3};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -69,6 +69,35 @@ impl<S> Vec3<S> {
 
     pub fn normalize(self) -> Self {
         self / self.len()
+    }
+
+    pub fn to_point(self) -> Point3<S> {
+        Point3::new(self.x(), self.y(), self.z())
+    }
+
+    pub fn coordinate_system_from_unit(self) -> (Self, Self) {
+        let v2 = if self.x().abs() > self.y().abs() {
+            Vec3::new(-self.z(), 0.0, self.x()) / (self.x().powi(2) + self.z().powi(2)) 
+        } else {
+            Vec3::new(0.0, self.z(), -self.y()) / (self.y().powi(2) + self.z().powi(2)) 
+        };
+
+        (v2, self.cross(v2))
+    }
+
+    pub fn spherical_direction(
+        sin_theta: f32,
+        cos_theta: f32,
+        phi: f32,
+        x: Self,
+        y: Self,
+        z: Self,
+    ) -> Self {
+        (sin_theta * phi.cos() * x) + (sin_theta * phi.sin() * y) + (cos_theta * z)
+    }
+
+    pub fn coerce_system<V>(self) -> Vec3<V> {
+        Vec3::new(self.x(), self.y(), self.z())
     }
 }
 

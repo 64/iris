@@ -1,6 +1,7 @@
 use enum_dispatch::enum_dispatch;
 
 use crate::math::{Point3, Ray, Shading, Vec3, World};
+use crate::sampling::Sampler;
 
 mod sphere;
 pub use sphere::Sphere;
@@ -32,6 +33,8 @@ impl Intersection {
 #[enum_dispatch]
 pub trait Shape {
     fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)>;
+
+    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32);
 }
 
 #[enum_dispatch(Shape)]

@@ -28,3 +28,4 @@ TODO:
 * Real time preview
 * Own PNG / HDR code
 * PGO
+* Clean up normal offseting
