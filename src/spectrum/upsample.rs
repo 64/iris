@@ -48,7 +48,7 @@ impl UpsampleTable {
             coefficients: self
                 .get_spectrum([rgb[0] / max, rgb[1] / max, rgb[2] / max])
                 .coefficients,
-            hdr_coefficient: max.min(100.0), /* Remove this hack once we importance sample the
+            hdr_coefficient: max.min(50.0), /* Remove this hack once we importance sample the
                                               * env map */
         }
     }

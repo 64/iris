@@ -24,7 +24,7 @@ pub struct Scene {
     emissives: HashMap<usize, Spectrum>,
     materials: HashMap<usize, Bsdf>,
     geometry: Vec<Geometry>,
-    env_map: Vec<UpsampledHdrSpectrum>,
+    _env_map: Vec<UpsampledHdrSpectrum>,
 }
 
 impl Scene {
@@ -33,20 +33,20 @@ impl Scene {
 
         let upsample_table = UpsampleTable::load();
 
-        use image::hdr::HdrDecoder;
-        use std::{fs::File, io::BufReader};
-        let env_map_path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/data/sculpture_exhibition_4k.hdr"
-        );
-        let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/cloud_layers_4k.hdr");
-        scene.env_map = HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
-            .unwrap()
-            .read_image_hdr()
-            .unwrap()
-            .into_iter()
-            .map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
-            .collect();
+        //use image::hdr::HdrDecoder;
+        //use std::{fs::File, io::BufReader};
+        //let env_map_path = concat!(
+            //env!("CARGO_MANIFEST_DIR"),
+            //"/data/small_cathedral_4k.hdr"
+        //);
+        //let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/cloud_layers_4k.hdr");
+        //scene.env_map = HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
+            //.unwrap()
+            //.read_image_hdr()
+            //.unwrap()
+            //.into_iter()
+            //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
+            //.collect();
 
         let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
         let bsdf_green = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]));
@@ -62,7 +62,7 @@ impl Scene {
         );
         scene.add_emissive(
             Sphere::new(Point3::new(0.0, 1.3, 1.0), 0.5),
-            ConstantSpectrum::new(0.05),
+            ConstantSpectrum::new(0.07),
         );
 
         scene
@@ -78,17 +78,17 @@ impl Scene {
         self.geometry.push(geom.into());
     }
 
-    fn background_emission(&self, ray: &Ray, hero_wavelength: Wavelength) -> SpectrumSample {
-        let d = ray.d();
+    fn background_emission(&self, ray: &Ray, _hero_wavelength: Wavelength) -> SpectrumSample {
+        //let d = ray.d();
 
-        let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
-        let v = 0.5 - d.y().asin() / std::f32::consts::PI;
+        //let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
+        //let v = 0.5 - d.y().asin() / std::f32::consts::PI;
 
-        let x = (u.clamp(0.0, 1.0) * 4095.99) as usize;
-        let y = (v.clamp(0.0, 1.0) * 2047.99) as usize;
+        //let x = ((u + 0.6).fract() * 4095.99) as usize;
+        //let y = ((v + 0.15).fract() * 2047.99) as usize;
 
-        0.001 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
-        // SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9))
+        //0.02 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
+        SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9))
     }
 
     fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(usize, Intersection)> {
