@@ -6,6 +6,7 @@ use crate::spectrum::{
 };
 
 const CIE_SAMPLES: usize = 700 - 380 + 1;
+const CIE_Y_INTEGRAL: f32 = 34281.84; // should use const fn when it isn't shit
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
@@ -27,6 +28,7 @@ impl Xyz {
 
         // TODO: We should be able to use SIMD here (_mm_i32gather_ps)
 
+        let value = value / CIE_Y_INTEGRAL;
         unsafe {
             Self {
                 x: *CIE_X.get_unchecked(index) * value,

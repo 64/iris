@@ -1,7 +1,7 @@
 use crate::{
     math::{Shading, Vec3},
     sampling::Sampler,
-    spectrum::{SpectrumSample, Wavelength},
+    spectrum::{SpectralSample, Wavelength},
 };
 use enum_dispatch::enum_dispatch;
 
@@ -18,7 +18,7 @@ pub trait SampleableBsdf {
         wi: Vec3<Shading>,
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
-    ) -> SpectrumSample;
+    ) -> SpectralSample;
 
     // Returns the sampled direction as well as the PDF for each wavelength
     fn sample(

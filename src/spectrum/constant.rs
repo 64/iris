@@ -1,4 +1,4 @@
-use crate::spectrum::{SampleableSpectrum, SpectrumSample, Wavelength};
+use crate::spectrum::{SampleableSpectrum, SpectralSample, Wavelength};
 
 #[derive(Debug, Clone)]
 pub struct ConstantSpectrum {
@@ -17,7 +17,7 @@ impl SampleableSpectrum for ConstantSpectrum {
         self.value
     }
 
-    fn evaluate(&self, _: Wavelength) -> SpectrumSample {
-        SpectrumSample::splat(self.value)
+    fn evaluate(&self, _: Wavelength) -> SpectralSample {
+        SpectralSample::splat(self.value)
     }
 }

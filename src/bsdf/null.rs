@@ -3,7 +3,7 @@ use crate::{
     bsdf::SampleableBsdf,
     math::{Shading, Vec3},
     sampling::Sampler,
-    spectrum::{SpectrumSample, Wavelength},
+    spectrum::{SpectralSample, Wavelength},
 };
 
 #[derive(Debug, Clone)]
@@ -21,8 +21,8 @@ impl SampleableBsdf for NullBsdf {
         _wi: Vec3<Shading>,
         _wo: Vec3<Shading>,
         _hero_wavelength: Wavelength,
-    ) -> SpectrumSample {
-        SpectrumSample::splat(0.0)
+    ) -> SpectralSample {
+        SpectralSample::splat(0.0)
     }
 
     fn sample(

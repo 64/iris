@@ -38,7 +38,7 @@ impl Wavelength {
     }
 
     pub fn pdf(self) -> f32 {
-        1e9 / LAMBDA_RANGE_NM
+        1.0 / LAMBDA_RANGE_NM
     }
 }
 

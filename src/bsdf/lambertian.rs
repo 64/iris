@@ -4,7 +4,7 @@ use crate::{
     bsdf::SampleableBsdf,
     math::{Shading, Vec3},
     sampling::{self, Sampler},
-    spectrum::{SampleableSpectrum, Spectrum, SpectrumSample, Wavelength},
+    spectrum::{SampleableSpectrum, Spectrum, SpectralSample, Wavelength},
 };
 
 use std::f32::consts::PI;
@@ -26,7 +26,7 @@ impl SampleableBsdf for LambertianBsdf {
         wi: Vec3<Shading>,
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
-    ) -> SpectrumSample {
+    ) -> SpectralSample {
         self.albedo.evaluate(hero_wavelength) / PI
     }
 
