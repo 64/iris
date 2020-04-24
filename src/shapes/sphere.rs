@@ -1,7 +1,7 @@
 use crate::{
     math::{Local, Point3, Ray, Vec3},
-    shapes::{Intersection, Shape},
     sampling::{self, Sampler},
+    shapes::{Intersection, Shape},
 };
 
 #[derive(Debug, Clone)]
@@ -83,20 +83,24 @@ impl Shape for Sphere {
         let phi = u1 * 2.0 * std::f32::consts::PI;
 
         let dc = self.position.distance(point);
-        let ds = dc * cos_theta - (self.radius.powi(2) - (dc * sin_theta).powi(2)).max(0.0).sqrt();
+        let ds = dc * cos_theta
+            - (self.radius.powi(2) - (dc * sin_theta).powi(2))
+                .max(0.0)
+                .sqrt();
         let cos_alpha = (dc.powi(2) + self.radius.powi(2) - ds.powi(2)) / (2.0 * dc * self.radius);
         let sin_alpha = (1.0 - cos_alpha.powi(2)).max(0.0).sqrt();
 
         let wc = (self.position - point).normalize().coerce_system();
         let (wc_x, wc_y) = wc.coordinate_system_from_unit();
 
-        let normal = Vec3::<Local>::spherical_direction(sin_alpha, cos_alpha, phi, -wc_x, -wc_y, -wc);
+        let normal =
+            Vec3::<Local>::spherical_direction(sin_alpha, cos_alpha, phi, -wc_x, -wc_y, -wc);
 
         let sampled_point_local = self.radius * 1.001 * normal.normalize();
         let sampled_point_world = self.local_to_world(sampled_point_local).to_point();
 
         debug_assert!(sampled_point_local.len() <= self.radius * 1.01);
 
-        (sampled_point_world, sampling::pdf_cone(cos_theta_max)) 
+        (sampled_point_world, sampling::pdf_cone(cos_theta_max))
     }
 }

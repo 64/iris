@@ -23,6 +23,7 @@ mod scene;
 mod shapes;
 mod spectrum;
 mod tile;
+mod types;
 
 pub struct Render {
     pub width: usize,

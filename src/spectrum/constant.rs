@@ -1,4 +1,4 @@
-use crate::spectrum::{SpectrumSample, SampleableSpectrum, Wavelength};
+use crate::spectrum::{SampleableSpectrum, SpectrumSample, Wavelength};
 
 #[derive(Debug, Clone)]
 pub struct ConstantSpectrum {

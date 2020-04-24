@@ -1,7 +1,12 @@
 use enum_dispatch::enum_dispatch;
 
-use crate::math::{Point3, Ray, Shading, Vec3, World};
-use crate::sampling::Sampler;
+use crate::{
+    math::{Point3, Ray, Shading, Vec3, World},
+    sampling::Sampler,
+    spectrum::Spectrum,
+    bsdf::Bsdf,
+    types::PrimIndex,
+};
 
 mod sphere;
 pub use sphere::Sphere;
@@ -41,4 +46,43 @@ pub trait Shape {
 #[derive(Debug, Clone)]
 pub enum Geometry {
     Sphere,
+}
+
+#[derive(Debug, Clone)]
+pub struct Primitive {
+    geometry: Geometry,
+    light_index: Option<usize>,
+    material_index: Option<usize>,
+}
+
+impl Shape for Primitive {
+    fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)> { self.geometry.intersect(ray) }
+
+    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32) { self.geometry.sample(p, sampler) }
+}
+
+impl Primitive {
+    pub fn new_light(geometry: Geometry, light_index: usize) -> Self {
+        Self {
+            geometry,
+            light_index: Some(light_index),
+            material_index: None,
+        }
+    }
+
+    pub fn new_material(geometry: Geometry, material_index: usize) -> Self {
+        Self {
+            geometry,
+            light_index: None,
+            material_index: Some(material_index),
+        }
+    }
+
+    pub fn get_light<'a>(&self, lights: &'a [PrimIndex<Spectrum>]) -> Option<&'a Spectrum> {
+        self.light_index.map(|i| &lights[i].data)
+    }
+
+    pub fn get_material<'a>(&self, materials: &'a [PrimIndex<Bsdf>]) -> Option<&'a Bsdf> {
+        self.material_index.map(|i| &materials[i].data)
+    }
 }

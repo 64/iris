@@ -2,7 +2,7 @@ use crate::{
     bsdf::{Bsdf, LambertianBsdf, SampleableBsdf},
     math::{OrdFloat, Point3, Ray},
     sampling::{self, mis, Sampler},
-    shapes::{Geometry, Intersection, Shape, Sphere},
+    shapes::{Geometry, Primitive, Intersection, Shape, Sphere},
     spectrum::{
         upsample::UpsampleTable,
         ConstantSpectrum,
@@ -12,18 +12,19 @@ use crate::{
         UpsampledHdrSpectrum,
         Wavelength,
     },
+    types::PrimIndex,
 };
 
-use std::{collections::HashMap, f32::INFINITY};
+use std::{f32::INFINITY};
 
 const MAX_DEPTH: u32 = 30;
 const MIN_DEPTH: u32 = 3;
 
 #[derive(Default)]
 pub struct Scene {
-    emissives: HashMap<usize, Spectrum>,
-    materials: HashMap<usize, Bsdf>,
-    geometry: Vec<Geometry>,
+    lights: Vec<PrimIndex<Spectrum>>,
+    materials: Vec<PrimIndex<Bsdf>>,
+    primitives: Vec<Primitive>,
     _env_map: Vec<UpsampledHdrSpectrum>,
 }
 
@@ -33,20 +34,21 @@ impl Scene {
 
         let upsample_table = UpsampleTable::load();
 
-        //use image::hdr::HdrDecoder;
-        //use std::{fs::File, io::BufReader};
-        //let env_map_path = concat!(
-            //env!("CARGO_MANIFEST_DIR"),
-            //"/data/small_cathedral_4k.hdr"
+        // use image::hdr::HdrDecoder;
+        // use std::{fs::File, io::BufReader};
+        // let env_map_path = concat!(
+        // env!("CARGO_MANIFEST_DIR"),
+        //"/data/small_cathedral_4k.hdr"
         //);
-        //let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/cloud_layers_4k.hdr");
-        //scene.env_map = HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
-            //.unwrap()
-            //.read_image_hdr()
-            //.unwrap()
-            //.into_iter()
-            //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
-            //.collect();
+        // let env_map_path = concat!(env!("CARGO_MANIFEST_DIR"),
+        // "/data/cloud_layers_4k.hdr"); scene.env_map =
+        // HdrDecoder::new(BufReader::new(File::open(env_map_path).unwrap()))
+        //.unwrap()
+        //.read_image_hdr()
+        //.unwrap()
+        //.into_iter()
+        //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
+        //.collect();
 
         let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
         let bsdf_green = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]));
@@ -60,51 +62,52 @@ impl Scene {
             Sphere::new(Point3::new(0.0, -100.5, 1.0), 100.0),
             bsdf_white,
         );
-        scene.add_emissive(
+        scene.add_light(
             Sphere::new(Point3::new(0.0, 1.3, 1.0), 0.5),
-            ConstantSpectrum::new(0.07),
+            ConstantSpectrum::new(70000000.00),
         );
 
         scene
     }
 
-    fn add_emissive<G: Into<Geometry>, S: Into<Spectrum>>(&mut self, geom: G, emission: S) {
-        self.emissives.insert(self.geometry.len(), emission.into());
-        self.geometry.push(geom.into());
+    fn add_light<G: Into<Geometry>, S: Into<Spectrum>>(&mut self, geom: G, light: S) {
+        self.lights.push(PrimIndex {
+            data: light.into(),
+            prim_index: self.primitives.len(),
+        });
+        self.primitives.push(Primitive::new_light(geom.into(), self.lights.len() - 1));
     }
 
-    fn add_material<G: Into<Geometry>, B: Into<Bsdf>>(&mut self, geom: G, bsdf: B) {
-        self.materials.insert(self.geometry.len(), bsdf.into());
-        self.geometry.push(geom.into());
+    fn add_material<G: Into<Geometry>, B: Into<Bsdf>>(&mut self, geom: G, material: B) {
+        self.materials.push(PrimIndex {
+            data: material.into(),
+            prim_index: self.primitives.len(),
+        });
+        self.primitives.push(Primitive::new_material(geom.into(), self.materials.len() - 1));
     }
 
     fn background_emission(&self, ray: &Ray, _hero_wavelength: Wavelength) -> SpectrumSample {
-        //let d = ray.d();
+        // let d = ray.d();
 
-        //let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
-        //let v = 0.5 - d.y().asin() / std::f32::consts::PI;
+        // let u = 0.5 + d.z().atan2(d.x()) / (2.0 * std::f32::consts::PI);
+        // let v = 0.5 - d.y().asin() / std::f32::consts::PI;
 
-        //let x = ((u + 0.6).fract() * 4095.99) as usize;
-        //let y = ((v + 0.15).fract() * 2047.99) as usize;
+        // let x = ((u + 0.6).fract() * 4095.99) as usize;
+        // let y = ((v + 0.15).fract() * 2047.99) as usize;
 
-        //0.02 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
-        SpectrumSample::splat((ray.d().y() / 3.0 + 0.5).powi(9))
+        // 0.02 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
+        SpectrumSample::splat((ray.d().y() / 3.0 + 0.5) * 1000000.0)
     }
 
-    fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(usize, Intersection)> {
+    fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(&Primitive, Intersection)> {
         // TODO: See if we can get a perf boost by rewriting this
         // It should at least clean up the call stack a bit
-        self.geometry
+        self.primitives
             .iter()
-            .enumerate()
-            .filter_map(|(i, sphere)| sphere.intersect(ray).map(|h| (i, h)))
+            .filter_map(|prim| prim.intersect(ray).map(|h| (prim, h)))
             .filter(|(_, (_, ray_t))| *ray_t <= max_t)
-            .min_by_key(|(_i, (_hit, ray_t))| OrdFloat::new(*ray_t))
-            .map(|(i, (hit, _ray_t))| (i, hit))
-    }
-
-    fn nth_light(&self, n: usize) -> Option<(&usize, &Spectrum)> {
-        self.emissives.iter().skip(n).next()
+            .min_by_key(|(_, (_, ray_t))| OrdFloat::new(*ray_t))
+            .map(|(prim, (hit, _))| (prim, hit))
     }
 
     pub fn radiance(
@@ -117,22 +120,22 @@ impl Scene {
         let mut throughput = SpectrumSample::splat(1.0 / hero_wavelength.pdf());
 
         for bounces in 0..MAX_DEPTH {
-            if let Some((geom_index, hit)) = self.intersection(&ray, INFINITY) {
+            if let Some((primitive, hit)) = self.intersection(&ray, INFINITY) {
                 if bounces == 0
                 // || specular_bounce
                 {
-                    if let Some(emission) = self.emissives.get(&geom_index) {
-                        radiance += throughput * emission.evaluate(hero_wavelength);
+                    if let Some(light) = primitive.get_light(&self.lights) {
+                        radiance += throughput * light.evaluate(hero_wavelength);
                     }
                 }
 
-                if let Some(bsdf) = self.materials.get(&geom_index) {
+                if let Some(bsdf) = primitive.get_material(&self.materials) {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
                     // Calculate direct lighting radiance via NEE
-                    let light_index = sampler.gen_array_index(self.emissives.len() + 1);
+                    let light_index = sampler.gen_array_index(self.lights.len() + 1);
 
-                    if light_index == self.emissives.len() {
+                    if light_index == self.lights.len() {
                         // Sample background
                         // Get ray
                         let light_dir_local =
@@ -151,18 +154,15 @@ impl Scene {
                             radiance += le
                                 * throughput
                                 * bsdf
-                                * (cos_theta * mis_weight
-                                    / pdf
-                                    / (self.emissives.len() + 1) as f32);
+                                * (cos_theta * mis_weight / pdf / (self.lights.len() + 1) as f32);
                         }
-                    } else if let Some((&light_geom_index, light_spectrum)) =
-                        self.nth_light(light_index)
-                    {
+                    } else {
                         // Sample the emission
-                        assert_ne!(light_geom_index, geom_index);
+                        let light = &self.lights[light_index];
+                        //assert_ne!(light.index, prim_index);
 
                         let (light_point, light_pdf) =
-                            self.geometry[light_geom_index].sample(hit.point, sampler);
+                            self.primitives[light.prim_index].sample(hit.point, sampler);
                         let hit_point = hit.point + hit.normal * 0.001;
                         let ray_to_light = Ray::new(hit_point, light_point - hit_point);
                         let max_t = (light_point - hit_point).len();
@@ -172,14 +172,14 @@ impl Scene {
                             let bsdf = bsdf.evaluate(shading_wi, shading_wo, hero_wavelength);
                             let mis_weight = 0.25;
                             let cos_theta = shading_wi.z().abs();
-                            let le = light_spectrum.evaluate(hero_wavelength);
+                            let le = light.data.evaluate(hero_wavelength);
 
                             radiance += le
                                 * throughput
                                 * bsdf
                                 * (cos_theta * mis_weight
                                     / light_pdf
-                                    / (self.emissives.len() + 1) as f32);
+                                    / (self.lights.len() + 1) as f32);
                         }
                     }
 
