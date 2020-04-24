@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{Point3, World};
+use super::{Point3, World, Shading};
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -98,6 +98,14 @@ impl<S> Vec3<S> {
 
     pub fn coerce_system<V>(self) -> Vec3<V> {
         Vec3::new(self.x(), self.y(), self.z())
+    }
+
+    pub fn face_forward(self, normal: Self) -> Self {
+        if self.dot(normal) >= 0.0 {
+            self
+        } else {
+            -self
+        }
     }
 }
 
@@ -253,5 +261,61 @@ impl<S> std::ops::Neg for Vec3<S> {
 
     fn neg(self) -> Self {
         Self::new(-self.x, -self.y, -self.z)
+    }
+}
+
+impl Vec3<Shading> {
+    pub fn cos_theta(self) -> f32 {
+        self.z()
+    }
+
+    pub fn cos_2_theta(self) -> f32 {
+        self.z().powi(2)
+    }
+
+    pub fn sin_2_theta(self) -> f32 {
+        (1.0 - self.cos_2_theta()).max(0.0)
+    }
+
+    pub fn sin_theta(self) -> f32 {
+        self.sin_2_theta().sqrt()
+    }
+
+    pub fn tan_theta(self) -> f32 {
+        self.sin_theta() / self.cos_theta()
+    }
+
+    pub fn tan_2_theta(self) -> f32 {
+        self.sin_2_theta() / self.cos_2_theta()
+    }
+
+    pub fn cos_phi(self) -> f32 {
+        let sin_theta = self.sin_theta();
+        if sin_theta == 0.0 {
+            0.0
+        } else {
+            f32::clamp(self.x() / sin_theta, -1.0, 1.0)
+        }
+    }
+
+    pub fn sin_phi(self) -> f32 {
+        let sin_theta = self.sin_theta();
+        if sin_theta == 0.0 {
+            0.0
+        } else {
+            f32::clamp(self.y() / sin_theta, -1.0, 1.0)
+        }
+    }
+
+    pub fn cos_2_phi(self) -> f32 {
+        self.cos_phi().powi(2)
+    }
+
+    pub fn sin_2_phi(self) -> f32 {
+        self.sin_phi().powi(2)
+    }
+
+    pub fn same_hemisphere(self, other: Self) -> bool {
+        self.z * other.z > 0.0
     }
 }

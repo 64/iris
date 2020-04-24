@@ -30,6 +30,15 @@ impl SampleableBsdf for LambertianBsdf {
         self.albedo.evaluate(hero_wavelength) / PI
     }
 
+    fn pdf(
+        &self,
+        wi: Vec3<Shading>,
+        wo: Vec3<Shading>,
+        hero_wavelength: Wavelength
+    ) -> [f32; 4] {
+        [sampling::pdf_cosine_unit_hemisphere(wi.cos_theta()); 4]
+    }
+
     fn sample(
         &self,
         wo: Vec3<Shading>,
@@ -37,6 +46,6 @@ impl SampleableBsdf for LambertianBsdf {
         sampler: &mut Sampler,
     ) -> (Vec3<Shading>, [f32; 4]) {
         let wi = sampling::cosine_unit_hemisphere(sampler.gen_0_1(), sampler.gen_0_1());
-        (wi, [sampling::pdf_cosine_unit_hemisphere(wi.z()); 4])
+        (wi, self.pdf(wi, wo, hero_wavelength))
     }
 }

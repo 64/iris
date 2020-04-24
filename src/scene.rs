@@ -1,5 +1,5 @@
 use crate::{
-    bsdf::{Bsdf, LambertianBsdf, SampleableBsdf},
+    bsdf::{Bsdf, LambertianBsdf, MicrofacetBsdf, SampleableBsdf},
     math::{OrdFloat, Point3, Ray, Shading, Vec3},
     sampling::{self, mis, Sampler},
     shapes::{Geometry, Intersection, Primitive, Shape, Sphere},
@@ -50,10 +50,14 @@ impl Scene {
         //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
         //.collect();
 
-        let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
+        let bsdf_red = MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]), 0.2, 0.2);
+        //let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
+        //let bsdf_green = MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]), 0.2, 0.2);
         let bsdf_green = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]));
+        //let bsdf_blue = MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.1, 0.8]), 0.2, 0.2);
         let bsdf_blue = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.1, 0.8]));
-        let bsdf_white = LambertianBsdf::new(upsample_table.get_spectrum([0.9, 0.9, 0.9]));
+        //let bsdf_white = MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.8, 0.8]), 0.2, 0.2);
+        let bsdf_white = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.8, 0.8]));
 
         scene.add_material(Sphere::new(Point3::new(0.0, 0.0, 1.0), 0.5), bsdf_red);
         scene.add_material(Sphere::new(Point3::new(0.9, 0.0, 1.2), 0.3), bsdf_green);
@@ -63,8 +67,8 @@ impl Scene {
             bsdf_white,
         );
         scene.add_light(
-            Sphere::new(Point3::new(0.0, 1.3, 1.0), 0.5),
-            ConstantSpectrum::new(700.0),
+            Sphere::new(Point3::new(0.0, 1.2, 0.8), 0.5),
+            ConstantSpectrum::new(2000.0),
         );
 
         scene
@@ -100,11 +104,11 @@ impl Scene {
         // let y = ((v + 0.15).fract() * 2047.99) as usize;
 
         // 0.02 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
-        SpectralSample::splat((ray.d().y() / 3.0 + 0.5) * 1000.0)
+        SpectralSample::splat((ray.d().y() / 2.0 + 0.5).powi(5) * 200.0)
     }
 
     fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(&Primitive, Intersection)> {
-        // TODO: See if we can get a perf boost by rewriting this
+        // TODO: See if we can get a perf boost by rewriting this as a loop
         // It should at least clean up the call stack a bit
         self.primitives
             .iter()
@@ -125,9 +129,7 @@ impl Scene {
 
         for bounces in 0..MAX_DEPTH {
             if let Some((primitive, hit)) = self.intersection(&ray, INFINITY) {
-                if bounces == 0
-                // || specular_bounce
-                {
+                if bounces == 0 {
                     if let Some(light) = primitive.get_light(&self.lights) {
                         radiance += throughput * light.evaluate(hero_wavelength);
                     }
@@ -149,7 +151,7 @@ impl Scene {
                     }
 
                     let bsdf = bsdf.evaluate(bsdf_sampled_wi, shading_wo, hero_wavelength);
-                    let cos_theta = bsdf_sampled_wi.z().abs();
+                    let cos_theta = bsdf_sampled_wi.cos_theta().abs();
                     let mis_weight = mis::hwss_weight(hero_wavelength, path_pdfs);
 
                     throughput *= bsdf * (cos_theta * mis_weight / path_pdfs[0]);
@@ -212,7 +214,7 @@ impl Scene {
                 let mis_weight = 0.25;
                 let le = self.background_emission(&light_ray, hero_wavelength);
 
-                return le * bsdf * (cos_theta * mis_weight / pdf / (self.lights.len() + 1) as f32);
+                return le * bsdf * (cos_theta * mis_weight / pdf * (self.lights.len() + 1) as f32);
             }
         } else {
             // Sample the emission
@@ -221,6 +223,7 @@ impl Scene {
 
             let (light_point, light_pdf) =
                 self.primitives[light.prim_index].sample(hit.point, sampler);
+            // TODO: There is a slight error in this ray spawn
             let ray_to_light = Ray::spawn(hit.point, light_point - hit.point, hit.normal);
             let max_t = (light_point - ray_to_light.o()).len();
 
@@ -233,7 +236,7 @@ impl Scene {
 
                 return le
                     * bsdf
-                    * (cos_theta * mis_weight / light_pdf / (self.lights.len() + 1) as f32);
+                    * (cos_theta * mis_weight / light_pdf * (self.lights.len() + 1) as f32);
             }
         }
 

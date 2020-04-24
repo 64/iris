@@ -22,7 +22,11 @@ impl SampleableBsdf for NullBsdf {
         _wo: Vec3<Shading>,
         _hero_wavelength: Wavelength,
     ) -> SpectralSample {
-        SpectralSample::splat(0.0)
+        unreachable!()
+    }
+
+    fn pdf(&self, _wi: Vec3<Shading>, _wo: Vec3<Shading>, _hero_wavelength: Wavelength) -> [f32; 4] {
+        unreachable!()
     }
 
     fn sample(
@@ -31,6 +35,6 @@ impl SampleableBsdf for NullBsdf {
         _hero_wavelength: Wavelength,
         _sampler: &mut Sampler,
     ) -> (Vec3<Shading>, [f32; 4]) {
-        todo!(); // Not sure what to do here
+        unreachable!()
     }
 }

@@ -8,6 +8,9 @@ use enum_dispatch::enum_dispatch;
 mod lambertian;
 pub use lambertian::LambertianBsdf;
 
+mod microfacet;
+pub use microfacet::MicrofacetBsdf;
+
 mod null;
 pub use null::NullBsdf;
 
@@ -19,6 +22,13 @@ pub trait SampleableBsdf {
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
     ) -> SpectralSample;
+
+    fn pdf(
+        &self,
+        wi: Vec3<Shading>,
+        wo: Vec3<Shading>,
+        hero_wavelength: Wavelength
+    ) -> [f32; 4];
 
     // Returns the sampled direction as well as the PDF for each wavelength
     fn sample(
@@ -33,5 +43,6 @@ pub trait SampleableBsdf {
 #[derive(Debug, Clone)]
 pub enum Bsdf {
     LambertianBsdf,
+    MicrofacetBsdf,
     NullBsdf,
 }
