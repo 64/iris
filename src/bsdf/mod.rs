@@ -23,12 +23,7 @@ pub trait SampleableBsdf {
         hero_wavelength: Wavelength,
     ) -> SpectralSample;
 
-    fn pdf(
-        &self,
-        wi: Vec3<Shading>,
-        wo: Vec3<Shading>,
-        hero_wavelength: Wavelength
-    ) -> [f32; 4];
+    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4];
 
     // Returns the sampled direction as well as the PDF for each wavelength
     fn sample(

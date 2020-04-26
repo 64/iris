@@ -4,7 +4,7 @@ use crate::{
     bsdf::SampleableBsdf,
     math::{Shading, Vec3},
     sampling::{self, Sampler},
-    spectrum::{SampleableSpectrum, Spectrum, SpectralSample, Wavelength},
+    spectrum::{SampleableSpectrum, SpectralSample, Spectrum, Wavelength},
 };
 
 use std::f32::consts::PI;
@@ -30,12 +30,7 @@ impl SampleableBsdf for LambertianBsdf {
         self.albedo.evaluate(hero_wavelength) / PI
     }
 
-    fn pdf(
-        &self,
-        wi: Vec3<Shading>,
-        wo: Vec3<Shading>,
-        hero_wavelength: Wavelength
-    ) -> [f32; 4] {
+    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4] {
         [sampling::pdf_cosine_unit_hemisphere(wi.cos_theta()); 4]
     }
 

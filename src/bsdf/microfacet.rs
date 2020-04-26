@@ -18,6 +18,8 @@ pub struct MicrofacetBsdf {
 
 impl MicrofacetBsdf {
     pub fn new<S: Into<Spectrum>>(reflectance: S, roughness_x: f32, roughness_y: f32) -> Self {
+        assert_ne!(roughness_x, 0.0);
+        assert_ne!(roughness_y, 0.0);
         Self {
             reflectance: reflectance.into(),
             alpha_x: ggx::roughness_to_alpha(roughness_x),
@@ -45,14 +47,12 @@ impl SampleableBsdf for MicrofacetBsdf {
             return SpectralSample::splat(0.0);
         }
 
-        assert!(wi.z() > 0.0, "{:?}", wi);
-
         let wh = wh.normalize();
         let wh_facing = wh.face_forward(Vec3::new(0.0, 0.0, 1.0));
         let d = ggx::evaluate(wh, self.alpha_x, self.alpha_y);
         let f = fresnel_dielectric(wi.dot(wh_facing), 1.5, 1.0);
         let g = ggx::g(wo, wh, self.alpha_x, self.alpha_y);
-        self.reflectance.evaluate(hero_wavelength) * d * f * g / (4.0 * cos_theta_o * cos_theta_i)
+        self.reflectance.evaluate(hero_wavelength) * d * g * f / (4.0 * cos_theta_o * cos_theta_i)
     }
 
     fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4] {
@@ -70,11 +70,15 @@ impl SampleableBsdf for MicrofacetBsdf {
         let wh = ggx::sample(wo, self.alpha_x, self.alpha_y, sampler);
         let wi = reflect(wo, wh);
 
-        if wo.cos_theta() == 0.0 || wo.dot(wh) < 0.0 || !wo.same_hemisphere(wi) {
+        if wo.cos_theta() == 0.0 {
             return (Vec3::splat(0.0), [0.0; 4]);
         }
-
-        assert!(wi.z() > 0.0, "{:?}, {:?}", wi, wh);
+        if wo.dot(wh) < 0.0 {
+            return (Vec3::splat(0.0), [0.0; 4]);
+        }
+        if !wo.same_hemisphere(wi) {
+            return (Vec3::splat(0.0), [0.0; 4]);
+        }
 
         let pdf = ggx::pdf(wo, wh, self.alpha_x, self.alpha_y) / (4.0 * wo.dot(wh));
         (wi, [pdf; 4])

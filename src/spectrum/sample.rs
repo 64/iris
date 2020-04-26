@@ -62,7 +62,22 @@ impl SpectralSample {
         let b = Xyz::from_wavelength(hero_wavelength.rotate_n(1), self.y());
         let c = Xyz::from_wavelength(hero_wavelength.rotate_n(2), self.z());
         let d = Xyz::from_wavelength(hero_wavelength.rotate_n(3), self.w());
-        a + b + c + d
+        let sum = a + b + c + d;
+        if sum.x > 100.0 / 320.0 {
+            dbg!(sum);
+            dbg!(self);
+            // panic!();
+        }
+        sum
+    }
+
+    pub fn sum(self) -> f32 {
+        // Can be optimized further
+        self.x() + self.y() + self.z() + self.w()
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.x() == 0.0 && self.y() == 0.0 && self.z() == 0.0 && self.w() == 0.0
     }
 
     pub fn from_function<F: Fn(Wavelength) -> f32>(hero_wavelength: Wavelength, func: F) -> Self {
@@ -86,6 +101,13 @@ impl SpectralSample {
         );
 
         self
+    }
+
+    pub fn clamp(self, min: f32, max: f32) -> Self {
+        Self {
+            data: unsafe { _mm_min_ps(_mm_max_ps(self.data, _mm_set1_ps(min)), _mm_set1_ps(max)) },
+        }
+        .assert_invariants()
     }
 }
 

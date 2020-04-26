@@ -40,7 +40,7 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 100;
+const TOTAL_SPP: usize = 1000;
 
 static DONE: AtomicBool = AtomicBool::new(false);
 static SAMPLES_TAKEN: AtomicUsize = AtomicUsize::new(0);
@@ -127,9 +127,9 @@ fn main() {
     let mut prev_time = Instant::now();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        let progress =
-            SAMPLES_TAKEN.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
         if !DONE.load(Ordering::Relaxed) {
+            let progress =
+                SAMPLES_TAKEN.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
             print!("Progress: {:>5.2}%\r", 100.0 * progress);
             std::io::stdout().flush().unwrap();
         }

@@ -10,7 +10,7 @@ const CIE_Y_INTEGRAL: f32 = 34281.84; // should use const fn when it isn't shit
 
 #[derive(Debug, Copy, Clone)]
 pub struct Xyz {
-    x: f32,
+    pub x: f32,
     y: f32,
     z: f32,
 }

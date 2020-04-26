@@ -1,10 +1,10 @@
 use enum_dispatch::enum_dispatch;
 
 use crate::{
+    bsdf::Bsdf,
     math::{Point3, Ray, Shading, Vec3, World},
     sampling::Sampler,
     spectrum::Spectrum,
-    bsdf::Bsdf,
     types::PrimIndex,
 };
 
@@ -56,9 +56,13 @@ pub struct Primitive {
 }
 
 impl Shape for Primitive {
-    fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)> { self.geometry.intersect(ray) }
+    fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)> {
+        self.geometry.intersect(ray)
+    }
 
-    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32) { self.geometry.sample(p, sampler) }
+    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32) {
+        self.geometry.sample(p, sampler)
+    }
 }
 
 impl Primitive {

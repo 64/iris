@@ -25,7 +25,12 @@ impl SampleableBsdf for NullBsdf {
         unreachable!()
     }
 
-    fn pdf(&self, _wi: Vec3<Shading>, _wo: Vec3<Shading>, _hero_wavelength: Wavelength) -> [f32; 4] {
+    fn pdf(
+        &self,
+        _wi: Vec3<Shading>,
+        _wo: Vec3<Shading>,
+        _hero_wavelength: Wavelength,
+    ) -> [f32; 4] {
         unreachable!()
     }
 

@@ -28,11 +28,7 @@ impl Wavelength {
         }
     }
 
-    // Importance sample the wavelength with pdf(lambda) = sech^2(0.0072(lambda -
-    // 538)) See https://www.researchgate.net/publication/228938842_An_Improved_Technique_for_Full_Spectral_Rendering
-    // Even though we stratify the spectrum for HWSS, it's important that the hero
-    // wavelength is importance sampled too because we use it for path
-    // generation.
+    // TODO: We should use golden ratio sampling, I think
     pub fn sample(sampler: &mut Sampler) -> Self {
         Wavelength(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
     }
@@ -41,6 +37,12 @@ impl Wavelength {
         1.0 / LAMBDA_RANGE_NM
     }
 }
+
+// Importance sample the wavelength with pdf(lambda) = sech^2(0.0072(lambda -
+// 538)) See https://www.researchgate.net/publication/228938842_An_Improved_Technique_for_Full_Spectral_Rendering
+// Even though we stratify the spectrum for HWSS, it's important that the hero
+// wavelength is importance sampled too because we use it for path
+// generation.
 
 // TODO: Is the error on these curves reasonable?
 // fn pdf(lambda: f32) -> f32 {

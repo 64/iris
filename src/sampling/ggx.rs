@@ -4,7 +4,12 @@ use crate::{
 };
 
 // http://jcgt.org/published/0007/04/01/paper.pdf#page=10
-pub fn sample(wo: Vec3<Shading>, alpha_x: f32, alpha_y: f32, sampler: &mut Sampler) -> Vec3<Shading> {
+pub fn sample(
+    wo: Vec3<Shading>,
+    alpha_x: f32,
+    alpha_y: f32,
+    sampler: &mut Sampler,
+) -> Vec3<Shading> {
     let wo = Vec3::<Shading>::new(alpha_x * wo.x(), alpha_y * wo.y(), wo.z()).normalize();
 
     let len_2 = wo.x().powi(2) + wo.y().powi(2);
@@ -54,7 +59,8 @@ pub fn g(wo: Vec3<Shading>, wh: Vec3<Shading>, alpha_x: f32, alpha_y: f32) -> f3
 }
 
 pub fn pdf(wo: Vec3<Shading>, wh: Vec3<Shading>, alpha_x: f32, alpha_y: f32) -> f32 {
-    evaluate(wh, alpha_x, alpha_y) * g1(wo, alpha_x, alpha_y) * wo.dot(wh).abs() / wo.cos_theta().abs() 
+    evaluate(wh, alpha_x, alpha_y) * g1(wo, alpha_x, alpha_y) * wo.dot(wh).abs()
+        / wo.cos_theta().abs()
 }
 
 pub fn roughness_to_alpha(r: f32) -> f32 {

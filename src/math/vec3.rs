@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{Point3, World, Shading};
+use super::{Point3, Shading, World};
 use std::marker::PhantomData;
 
 #[derive(Debug)]

@@ -50,13 +50,17 @@ impl Scene {
         //.map(|rgb| upsample_table.get_spectrum_hdr(rgb.0))
         //.collect();
 
-        let bsdf_red = MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]), 0.2, 0.2);
-        //let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]));
-        //let bsdf_green = MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]), 0.2, 0.2);
+        let bsdf_red =
+            MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1]), 0.80, 0.20);
+        // let bsdf_red = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1,
+        // 0.1])); let bsdf_green =
+        // MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]), 0.2, 0.2);
         let bsdf_green = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.8, 0.1]));
-        //let bsdf_blue = MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.1, 0.8]), 0.2, 0.2);
+        // let bsdf_blue = MicrofacetBsdf::new(upsample_table.get_spectrum([0.1, 0.1,
+        // 0.8]), 0.2, 0.2);
         let bsdf_blue = LambertianBsdf::new(upsample_table.get_spectrum([0.1, 0.1, 0.8]));
-        //let bsdf_white = MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.8, 0.8]), 0.2, 0.2);
+        // let bsdf_white = MicrofacetBsdf::new(upsample_table.get_spectrum([0.8, 0.8,
+        // 0.8]), 0.2, 0.2);
         let bsdf_white = LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.8, 0.8]));
 
         scene.add_material(Sphere::new(Point3::new(0.0, 0.0, 1.0), 0.5), bsdf_red);
@@ -66,10 +70,10 @@ impl Scene {
             Sphere::new(Point3::new(0.0, -100.5, 1.0), 100.0),
             bsdf_white,
         );
-        scene.add_light(
-            Sphere::new(Point3::new(0.0, 1.2, 0.8), 0.5),
-            ConstantSpectrum::new(2000.0),
-        );
+        // scene.add_light(
+        // Sphere::new(Point3::new(0.0, 1.2, 0.8), 0.5),
+        // ConstantSpectrum::new(2000.0),
+        //);
 
         scene
     }
@@ -104,7 +108,8 @@ impl Scene {
         // let y = ((v + 0.15).fract() * 2047.99) as usize;
 
         // 0.02 * self.env_map[y * 4096 + x].evaluate(hero_wavelength)
-        SpectralSample::splat((ray.d().y() / 2.0 + 0.5).powi(5) * 200.0)
+        // SpectralSample::splat((ray.d().y() / 2.0 + 0.5).powi(5) * 200.0)
+        SpectralSample::splat(200.0)
     }
 
     fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(&Primitive, Intersection)> {
@@ -125,7 +130,7 @@ impl Scene {
         sampler: &mut Sampler,
     ) -> SpectralSample {
         let mut radiance = SpectralSample::splat(0.0);
-        let mut throughput = SpectralSample::splat(1.0 / hero_wavelength.pdf());
+        let mut throughput = SpectralSample::splat(1.0);
 
         for bounces in 0..MAX_DEPTH {
             if let Some((primitive, hit)) = self.intersection(&ray, INFINITY) {
@@ -139,8 +144,13 @@ impl Scene {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
                     // Direct lighting (NEE)
-                    radiance += throughput
+                    let direct = throughput
                         * self.direct_lighting(shading_wo, bsdf, &hit, hero_wavelength, sampler);
+                    if direct.sum() > 1000.0 {
+                        // print!("dl: {:?} {:?} {:?}\n", direct, radiance,
+                        // throughput);
+                    }
+                    radiance += direct;
 
                     // Indirect lighting
                     let (bsdf_sampled_wi, path_pdfs) =
@@ -156,35 +166,41 @@ impl Scene {
 
                     throughput *= bsdf * (cos_theta * mis_weight / path_pdfs[0]);
 
-                    // Spawn the next ray
-                    ray = Ray::spawn(
-                        hit.point,
-                        hit.shading_to_world(bsdf_sampled_wi),
-                        hit.normal,
-                    );
+                    ray = Ray::spawn(hit.point, hit.shading_to_world(bsdf_sampled_wi), hit.normal);
 
                     // Russian roulette
-                    if bounces > MIN_DEPTH {
-                        let p = throughput.x();
-                        if sampler.gen_0_1() > p {
+                    if bounces >= MIN_DEPTH {
+                        // TODO: Can we rewrite without 1 - t?
+                        let p = 1.0 - throughput.sum() / 4.0;
+                        if p > 0.0 && sampler.gen_0_1() < p.max(0.05) {
                             break;
                         }
 
-                        throughput /= SpectralSample::splat(p);
+                        throughput /= SpectralSample::splat(1.0 - p.max(0.05));
                     }
                 } else {
                     // Hit some purely emissive object
-                    break;
+                    unreachable!();
+                    // break;
                 }
-            } else if bounces == 0
-            // || specular
-            {
+            } else if bounces == 0 {
                 radiance += throughput * self.background_emission(&ray, hero_wavelength);
+                if radiance.sum() > 1000.0 {
+                    // print!("bg: {:?} {:?}\n", radiance, throughput);
+                }
                 break;
             } else {
                 // Hit background but we don't need to accumulate it
+                if radiance.sum() > 1000.0 {
+                    // print!("bn: {:?} {:?} {}\n", radiance, throughput,
+                    // bounces);
+                }
                 break;
             }
+        }
+
+        if radiance.sum() > 1000.0 {
+            // print!("ex: {:?} {:?}\n", radiance, throughput);
         }
 
         radiance
@@ -199,6 +215,8 @@ impl Scene {
         sampler: &mut Sampler,
     ) -> SpectralSample {
         let light_index = sampler.gen_array_index(self.lights.len() + 1);
+        let light_weight = (self.lights.len() + 1) as f32;
+        let mut radiance = SpectralSample::splat(0.0);
 
         if light_index == self.lights.len() {
             let light_dir_local =
@@ -206,15 +224,16 @@ impl Scene {
 
             let light_dir = hit.shading_to_world(light_dir_local);
             let light_ray = Ray::spawn(hit.point, light_dir, hit.normal);
-            let cos_theta = light_dir_local.z().abs();
-            let pdf = sampling::pdf_cosine_unit_hemisphere(cos_theta);
+            let cos_theta = light_dir_local.cos_theta().abs();
+            let light_pdf = sampling::pdf_cosine_unit_hemisphere(cos_theta);
 
-            if pdf != 0.0 && self.intersection(&light_ray, INFINITY).is_none() {
-                let bsdf = bsdf.evaluate(light_dir_local, shading_wo, hero_wavelength);
-                let mis_weight = 0.25;
+            if light_pdf != 0.0 && self.intersection(&light_ray, INFINITY).is_none() {
+                let bsdf_pdf = bsdf.pdf(light_dir_local, shading_wo, hero_wavelength);
+                let bsdf_value = bsdf.evaluate(light_dir_local, shading_wo, hero_wavelength);
+                let mis_weight = mis::balance_heuristic([light_pdf; 4], bsdf_pdf);
                 let le = self.background_emission(&light_ray, hero_wavelength);
 
-                return le * bsdf * (cos_theta * mis_weight / pdf * (self.lights.len() + 1) as f32);
+                radiance += le * bsdf_value * cos_theta * mis_weight / (light_pdf * light_weight);
             }
         } else {
             // Sample the emission
@@ -224,22 +243,42 @@ impl Scene {
             let (light_point, light_pdf) =
                 self.primitives[light.prim_index].sample(hit.point, sampler);
             // TODO: There is a slight error in this ray spawn
-            let ray_to_light = Ray::spawn(hit.point, light_point - hit.point, hit.normal);
+            // let ray_to_light = Ray::spawn(hit.point, light_point - hit.point,
+            // hit.normal);
+            let hit_point = hit.point + hit.normal * 0.001;
+            let ray_to_light = Ray::new(hit_point, light_point - hit_point);
             let max_t = (light_point - ray_to_light.o()).len();
 
+            // TODO: Check if it intersected the given light
             if light_pdf != 0.0 && self.intersection(&ray_to_light, max_t).is_none() {
                 let shading_wi = hit.world_to_shading(ray_to_light.d());
-                let bsdf = bsdf.evaluate(shading_wi, shading_wo, hero_wavelength);
-                let mis_weight = 0.25;
-                let cos_theta = shading_wi.z().abs();
+                let bsdf_pdf = bsdf.pdf(shading_wi, shading_wo, hero_wavelength);
+                let bsdf_value = bsdf.evaluate(shading_wi, shading_wo, hero_wavelength);
+                let cos_theta = shading_wi.cos_theta().abs();
                 let le = light.data.evaluate(hero_wavelength);
+                let mis_weight = mis::balance_heuristic([light_pdf; 4], bsdf_pdf);
 
-                return le
-                    * bsdf
-                    * (cos_theta * mis_weight / light_pdf * (self.lights.len() + 1) as f32);
+                radiance += le * bsdf_value * cos_theta * mis_weight / (light_pdf * light_weight);
             }
         }
 
-        SpectralSample::splat(0.0)
+        let (bsdf_sampled_wi, bsdf_pdfs) = bsdf.sample(shading_wo, hero_wavelength, sampler);
+        let bsdf_values = bsdf.evaluate(bsdf_sampled_wi, shading_wo, hero_wavelength);
+
+        if !radiance.is_zero() && bsdf_pdfs[0] != 0.0 {
+            let cos_theta = bsdf_sampled_wi.cos_theta().abs();
+            let light_pdf = sampling::pdf_cosine_unit_hemisphere(cos_theta);
+
+            let mis_weight = mis::balance_heuristic(bsdf_pdfs, [light_pdf; 4]);
+            let world_dir = hit.shading_to_world(bsdf_sampled_wi);
+            let ray = Ray::spawn(hit.point, world_dir, hit.normal);
+            let le = self.background_emission(&ray, hero_wavelength);
+
+            if self.intersection(&ray, INFINITY).is_none() {
+                radiance += le * bsdf_values * cos_theta * mis_weight / bsdf_pdfs[0];
+            }
+        }
+
+        radiance
     }
 }

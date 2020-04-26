@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-pub mod mis;
 pub mod ggx;
+pub mod mis;
 
 mod sampler;
 pub use sampler::Sampler;
