@@ -13,9 +13,9 @@ Features (WIP):
 
 TODO:
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
-* Analytic light test (Le = 0.5, f = 0.5, radiance should be 1)
+* Analytic light integration test (Le = 0.5, f = 0.5, radiance should be 1)
+* Unify simd code for Vec4y types (Wavelength, Spectrum, PdfSet)
 * More shapes
-* PdfSet? Vec4?
 * Serialize scene from RON
 * Write own sobol code
 * BVH / other spatial accel

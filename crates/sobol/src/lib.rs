@@ -100,7 +100,7 @@ fn sobol_u32(dimension: u32, index: u32) -> u32 {
     let mut i = 0;
     while index != 0 {
         let j = index.trailing_zeros();
-        result ^= vecs[(i + j) as usize];
+        result ^= unsafe { vecs.get_unchecked((i + j) as usize) };
         i += j + 1;
         index >>= j;
         index >>= 1;

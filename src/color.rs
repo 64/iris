@@ -1,9 +1,6 @@
 #![allow(clippy::excessive_precision, clippy::unreadable_literal)]
 
-use crate::spectrum::{
-    wavelength::{LAMBDA_MAX_NM, LAMBDA_MIN_NM},
-    Wavelength,
-};
+use crate::spectrum::wavelength::{LAMBDA_MAX_NM, LAMBDA_MIN_NM};
 
 const CIE_SAMPLES: usize = 830 - 360 + 1;
 const CIE_Y_INTEGRAL: f32 = 116.661843131358;
@@ -20,15 +17,13 @@ impl Xyz {
         Self { x, y, z }
     }
 
-    pub fn from_wavelength(wavelength: Wavelength, mut value: f32) -> Self {
-        let lambda = wavelength.as_nm_f32();
-
+    // TODO: We should be able to use SIMD for the lookups (_mm_i32gather_ps)
+    pub fn from_wavelength(lambda: f32, mut value: f32) -> Self {
         debug_assert!(lambda >= LAMBDA_MIN_NM && lambda <= LAMBDA_MAX_NM);
         let index = (lambda as usize) - (LAMBDA_MIN_NM as usize);
 
         value *= (LAMBDA_MAX_NM - LAMBDA_MIN_NM) / CIE_Y_INTEGRAL;
 
-        // TODO: We should be able to use SIMD for the lookups (_mm_i32gather_ps)
         unsafe {
             Self {
                 x: *CIE_X.get_unchecked(index) * value,

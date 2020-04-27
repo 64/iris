@@ -1,8 +1,8 @@
 #![allow(unused)]
 #![allow(dead_code)]
 use crate::{
-    bsdf::{Bsdf, LambertianBsdf, MicrofacetBsdf, SampleableBsdf},
-    math::{OrdFloat, Point3, Ray, Shading, Vec3},
+    bsdf::{Bsdf, LambertianBsdf, MicrofacetBsdf, SampleableBsdf, SpecularBsdf},
+    math::{Point3, Ray, Shading, Vec3},
     sampling::{self, mis, Sampler},
     shapes::{Geometry, Intersection, Primitive, Shape, Sphere},
     spectrum::{
@@ -39,6 +39,11 @@ impl Scene {
             LambertianBsdf::new(ConstantSpectrum::new(0.25)),
             ConstantSpectrum::new(0.25),
         );
+        //scene.add_emissive_material(
+            //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
+            //SpecularBsdf::new(ConstantSpectrum::new(0.25), 1.8),
+            //ConstantSpectrum::new(0.25),
+        //);
 
         scene
     }
@@ -89,14 +94,20 @@ impl Scene {
     }
 
     fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(&Primitive, Intersection)> {
-        // TODO: See if we can get a perf boost by rewriting this as a loop
-        // It should at least clean up the call stack a bit
-        self.primitives
-            .iter()
-            .filter_map(|prim| prim.intersect(ray).map(|h| (prim, h)))
-            .filter(|(_, (_, ray_t))| *ray_t <= max_t)
-            .min_by_key(|(_, (_, ray_t))| OrdFloat::new(*ray_t))
-            .map(|(prim, (hit, _))| (prim, hit))
+        let mut closest_t = INFINITY;
+        let mut closest_prim_hit = None;
+
+        for prim in &self.primitives {
+            match prim.intersect(ray) {
+                Some((hit, t)) if t < closest_t && t > 0.0 && t < max_t => {
+                    closest_t = t;
+                    closest_prim_hit = Some((prim, hit));
+                }
+                _ => continue,
+            }
+        }
+
+        closest_prim_hit
     }
 
     pub fn radiance(
@@ -106,7 +117,9 @@ impl Scene {
         sampler: &mut Sampler,
     ) -> SpectralSample {
         let mut radiance = SpectralSample::splat(0.0);
-        let mut throughput = SpectralSample::splat(0.25); // Since we use 4 wavelengths
+        // Since we use 4 wavelengths
+        // TODO: Should we start at 1.0 and compensate in another way?
+        let mut throughput = SpectralSample::splat(0.25);
 
         for bounces in 0..MAX_DEPTH {
             if let Some((primitive, hit)) = self.intersection(&ray, INFINITY) {
@@ -143,7 +156,6 @@ impl Scene {
                 }
             } else {
                 radiance += throughput * self.background_emission(&ray, hero_wavelength);
-                unreachable!();
                 break;
             }
         }

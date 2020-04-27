@@ -13,10 +13,10 @@ pub use upsample::{UpsampledHdrSpectrum, UpsampledSpectrum};
 
 #[enum_dispatch]
 pub trait SampleableSpectrum {
-    fn evaluate_single(&self, wavelength: Wavelength) -> f32;
+    fn evaluate_single(&self, wavelength_nm: f32) -> f32;
 
-    fn evaluate(&self, hero_wavelength: Wavelength) -> SpectralSample {
-        SpectralSample::from_function(hero_wavelength, |lambda| self.evaluate_single(lambda))
+    fn evaluate(&self, wavelength: Wavelength) -> SpectralSample {
+        SpectralSample::from_function(wavelength, |lambda| self.evaluate_single(lambda))
     }
 }
 

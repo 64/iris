@@ -1,5 +1,5 @@
 use crate::{
-    math::{Shading, Vec3, PdfSet},
+    math::{PdfSet, Shading, Vec3},
     sampling::Sampler,
     spectrum::{SpectralSample, Wavelength},
 };

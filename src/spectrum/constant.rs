@@ -13,7 +13,7 @@ impl ConstantSpectrum {
 }
 
 impl SampleableSpectrum for ConstantSpectrum {
-    fn evaluate_single(&self, _: Wavelength) -> f32 {
+    fn evaluate_single(&self, _: f32) -> f32 {
         self.value
     }
 

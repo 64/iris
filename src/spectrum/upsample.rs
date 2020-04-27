@@ -1,5 +1,5 @@
 // Implementation of http://rgl.epfl.ch/publications/Jakob2019Spectral
-use crate::spectrum::{SampleableSpectrum, Wavelength};
+use crate::spectrum::SampleableSpectrum;
 use std::{convert::TryInto, fs::File, io::Read};
 
 pub struct UpsampleTable {
@@ -14,10 +14,11 @@ pub struct UpsampledSpectrum {
 }
 
 impl SampleableSpectrum for UpsampledSpectrum {
-    fn evaluate_single(&self, lambda: Wavelength) -> f32 {
+    // TODO: Simd
+    fn evaluate_single(&self, lambda: f32) -> f32 {
         let x = self.coefficients[0]
-            .mul_add(lambda.as_nm_f32(), self.coefficients[1])
-            .mul_add(lambda.as_nm_f32(), self.coefficients[2]);
+            .mul_add(lambda, self.coefficients[1])
+            .mul_add(lambda, self.coefficients[2]);
         let y = 1.0 / x.mul_add(x, 1.0).sqrt();
         (0.5 * x).mul_add(y, 0.5)
     }
@@ -30,10 +31,11 @@ pub struct UpsampledHdrSpectrum {
 }
 
 impl SampleableSpectrum for UpsampledHdrSpectrum {
-    fn evaluate_single(&self, lambda: Wavelength) -> f32 {
+    // TODO: Simd
+    fn evaluate_single(&self, lambda: f32) -> f32 {
         let x = self.coefficients[0]
-            .mul_add(lambda.as_nm_f32(), self.coefficients[1])
-            .mul_add(lambda.as_nm_f32(), self.coefficients[2]);
+            .mul_add(lambda, self.coefficients[1])
+            .mul_add(lambda, self.coefficients[2]);
         let y = 1.0 / x.mul_add(x, 1.0).sqrt();
         self.hdr_coefficient * (0.5 * x).mul_add(y, 0.5)
     }

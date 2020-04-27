@@ -1,40 +1,82 @@
 use crate::sampling::Sampler;
+use std::arch::x86_64::*;
 
 pub const LAMBDA_MIN_NM: f32 = 360.0;
 pub const LAMBDA_MAX_NM: f32 = 830.0;
 pub const LAMBDA_RANGE_NM: f32 = LAMBDA_MAX_NM - LAMBDA_MIN_NM;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Wavelength(f32);
+pub struct Wavelength {
+    data: __m128,
+}
 
 impl Wavelength {
-    #[cfg(test)]
-    pub fn new(lambda: f32) -> Self {
-        Self(lambda)
-    }
+    pub fn new(hero: f32) -> Self {
+        let y = rotate_n(hero, 1);
+        let z = rotate_n(hero, 2);
+        let w = rotate_n(hero, 3);
 
-    pub fn as_nm_f32(self) -> f32 {
-        self.0
-    }
-
-    pub fn rotate_n(self, n: usize) -> Wavelength {
-        let lambda = self.0 + (LAMBDA_RANGE_NM / 4.0) * (n as f32);
-
-        // Perform modulo operation (so that lambda is always in range)
-        if lambda >= LAMBDA_MAX_NM {
-            Self(lambda - LAMBDA_RANGE_NM)
-        } else {
-            Self(lambda)
+        Self {
+            data: unsafe { _mm_set_ps(w, z, y, hero) },
         }
     }
 
     // TODO: We should use golden ratio sampling, I think
     pub fn sample(sampler: &mut Sampler) -> Self {
-        Wavelength(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
+        Self::new(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
     }
 
     pub fn pdf(self) -> f32 {
         1.0 / LAMBDA_RANGE_NM
+    }
+
+    pub fn hero(self) -> f32 {
+        unsafe { _mm_cvtss_f32(self.data) }
+    }
+
+    pub fn x(self) -> f32 {
+        unsafe { _mm_cvtss_f32(self.data) }
+    }
+
+    pub fn y(self) -> f32 {
+        unsafe {
+            _mm_cvtss_f32(_mm_shuffle_ps(
+                self.data,
+                self.data,
+                _MM_SHUFFLE(3, 2, 1, 1),
+            ))
+        }
+    }
+
+    pub fn z(self) -> f32 {
+        unsafe {
+            _mm_cvtss_f32(_mm_shuffle_ps(
+                self.data,
+                self.data,
+                _MM_SHUFFLE(3, 2, 1, 2),
+            ))
+        }
+    }
+
+    pub fn w(self) -> f32 {
+        unsafe {
+            _mm_cvtss_f32(_mm_shuffle_ps(
+                self.data,
+                self.data,
+                _MM_SHUFFLE(3, 2, 1, 3),
+            ))
+        }
+    }
+}
+
+pub fn rotate_n(hero: f32, n: usize) -> f32 {
+    let lambda = hero + (LAMBDA_RANGE_NM / 4.0) * (n as f32);
+
+    // Perform modulo operation (so that lambda is always in range)
+    if lambda >= LAMBDA_MAX_NM {
+        lambda - LAMBDA_RANGE_NM
+    } else {
+        lambda
     }
 }
 

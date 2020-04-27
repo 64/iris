@@ -42,6 +42,10 @@ impl SampleableBsdf for LambertianBsdf {
     ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wi = sampling::cosine_unit_hemisphere(sampler.gen_0_1(), sampler.gen_0_1());
         let wi = if wo.same_hemisphere(wi) { wi } else { -wi };
-        (wi, self.evaluate(wi, wo, hero_wavelength), self.pdf(wi, wo, hero_wavelength))
+        (
+            wi,
+            self.evaluate(wi, wo, hero_wavelength),
+            self.pdf(wi, wo, hero_wavelength),
+        )
     }
 }

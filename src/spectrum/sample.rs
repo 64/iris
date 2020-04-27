@@ -56,20 +56,21 @@ impl SpectralSample {
         }
     }
 
-    pub fn to_xyz(self, hero_wavelength: Wavelength) -> Xyz {
-        let a = Xyz::from_wavelength(hero_wavelength.rotate_n(0), self.x());
-        let b = Xyz::from_wavelength(hero_wavelength.rotate_n(1), self.y());
-        let c = Xyz::from_wavelength(hero_wavelength.rotate_n(2), self.z());
-        let d = Xyz::from_wavelength(hero_wavelength.rotate_n(3), self.w());
+    pub fn to_xyz(self, wavelength: Wavelength) -> Xyz {
+        // TODO: Simd
+        let a = Xyz::from_wavelength(wavelength.x(), self.x());
+        let b = Xyz::from_wavelength(wavelength.y(), self.y());
+        let c = Xyz::from_wavelength(wavelength.z(), self.z());
+        let d = Xyz::from_wavelength(wavelength.w(), self.w());
         a + b + c + d
     }
 
-    pub fn from_function<F: Fn(Wavelength) -> f32>(hero_wavelength: Wavelength, func: F) -> Self {
+    pub fn from_function<F: Fn(f32) -> f32>(wavelength: Wavelength, func: F) -> Self {
         SpectralSample::new(
-            func(hero_wavelength.rotate_n(0)),
-            func(hero_wavelength.rotate_n(1)),
-            func(hero_wavelength.rotate_n(2)),
-            func(hero_wavelength.rotate_n(3)),
+            func(wavelength.x()),
+            func(wavelength.y()),
+            func(wavelength.z()),
+            func(wavelength.w()),
         )
         .assert_invariants()
     }
