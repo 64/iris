@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::{
     bsdf::SampleableBsdf,
-    math::{Shading, Vec3},
+    math::{PdfSet, Shading, Vec3},
     sampling::Sampler,
     spectrum::{SpectralSample, Wavelength},
 };
@@ -30,7 +30,7 @@ impl SampleableBsdf for NullBsdf {
         _wi: Vec3<Shading>,
         _wo: Vec3<Shading>,
         _hero_wavelength: Wavelength,
-    ) -> [f32; 4] {
+    ) -> PdfSet {
         unreachable!()
     }
 
@@ -39,7 +39,7 @@ impl SampleableBsdf for NullBsdf {
         _wo: Vec3<Shading>,
         _hero_wavelength: Wavelength,
         _sampler: &mut Sampler,
-    ) -> (Vec3<Shading>, [f32; 4]) {
+    ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         unreachable!()
     }
 }

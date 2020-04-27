@@ -2,7 +2,7 @@
 #![allow(unused)]
 use crate::{
     bsdf::SampleableBsdf,
-    math::{Shading, Vec3},
+    math::{PdfSet, Shading, Vec3},
     sampling::{self, ggx, Sampler},
     spectrum::{SampleableSpectrum, SpectralSample, Spectrum, Wavelength},
 };
@@ -55,10 +55,10 @@ impl SampleableBsdf for MicrofacetBsdf {
         self.reflectance.evaluate(hero_wavelength) * d * g * f / (4.0 * cos_theta_o * cos_theta_i)
     }
 
-    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4] {
+    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> PdfSet {
         let wh = (wi + wo).normalize();
         let res = ggx::pdf(wo, wh, self.alpha_x, self.alpha_y) / (4.0 * wo.dot(wh));
-        [res; 4]
+        PdfSet::splat(res)
     }
 
     fn sample(
@@ -66,22 +66,16 @@ impl SampleableBsdf for MicrofacetBsdf {
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
         sampler: &mut Sampler,
-    ) -> (Vec3<Shading>, [f32; 4]) {
+    ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wh = ggx::sample(wo, self.alpha_x, self.alpha_y, sampler);
         let wi = reflect(wo, wh);
 
-        if wo.cos_theta() == 0.0 {
-            return (Vec3::splat(0.0), [0.0; 4]);
-        }
-        if wo.dot(wh) < 0.0 {
-            return (Vec3::splat(0.0), [0.0; 4]);
-        }
-        if !wo.same_hemisphere(wi) {
-            return (Vec3::splat(0.0), [0.0; 4]);
+        if wo.cos_theta() == 0.0 || wo.dot(wh) < 0.0 || !wo.same_hemisphere(wi) {
+            return (Vec3::splat(0.0), SpectralSample::splat(0.0), PdfSet::splat(0.0));
         }
 
         let pdf = ggx::pdf(wo, wh, self.alpha_x, self.alpha_y) / (4.0 * wo.dot(wh));
-        (wi, [pdf; 4])
+        (wi, self.evaluate(wi, wo, hero_wavelength), PdfSet::splat(pdf))
     }
 }
 

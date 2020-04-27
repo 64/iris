@@ -21,8 +21,15 @@ impl<S> Ray<S> {
     }
 
     pub fn spawn(o: Point3<S>, d: Vec3<S>, normal: Vec3<S>) -> Self {
+        let epsilon = if normal.dot(d) >= 0.0 {
+            RAY_EPSILON
+        } else {
+            // We're on the inside of the object
+            -RAY_EPSILON
+        };
+
         Self {
-            o: o + RAY_EPSILON * normal,
+            o: o + epsilon * normal,
             d: d.normalize(),
             t_max: std::f32::INFINITY,
         }

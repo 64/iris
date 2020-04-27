@@ -103,7 +103,7 @@ impl UpsampleTable {
         UpsampledSpectrum { coefficients }
     }
 
-    pub fn load() -> Self {
+    pub fn _load() -> Self {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/srgb.coeff");
 
         let mut file = File::open(path).expect("failed to load srgb coefficients");

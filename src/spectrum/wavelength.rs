@@ -1,7 +1,7 @@
 use crate::sampling::Sampler;
 
-pub const LAMBDA_MIN_NM: f32 = 380.0;
-pub const LAMBDA_MAX_NM: f32 = 700.0;
+pub const LAMBDA_MIN_NM: f32 = 360.0;
+pub const LAMBDA_MAX_NM: f32 = 830.0;
 pub const LAMBDA_RANGE_NM: f32 = LAMBDA_MAX_NM - LAMBDA_MIN_NM;
 
 #[derive(Debug, Copy, Clone)]

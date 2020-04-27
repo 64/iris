@@ -69,16 +69,28 @@ impl Primitive {
     pub fn new_light(geometry: Geometry, light_index: usize) -> Self {
         Self {
             geometry,
-            light_index: Some(light_index),
             material_index: None,
+            light_index: Some(light_index),
         }
     }
 
     pub fn new_material(geometry: Geometry, material_index: usize) -> Self {
         Self {
             geometry,
-            light_index: None,
             material_index: Some(material_index),
+            light_index: None,
+        }
+    }
+
+    pub fn new_emissive_material(
+        geometry: Geometry,
+        material_index: usize,
+        light_index: usize,
+    ) -> Self {
+        Self {
+            geometry,
+            material_index: Some(material_index),
+            light_index: Some(light_index),
         }
     }
 

@@ -40,7 +40,7 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 1000;
+const TOTAL_SPP: usize = 100;
 
 static DONE: AtomicBool = AtomicBool::new(false);
 static SAMPLES_TAKEN: AtomicUsize = AtomicUsize::new(0);
@@ -87,7 +87,7 @@ fn main() {
 
     let start = Instant::now();
 
-    for _cpu in 0..num_threads {
+    for _ in 0..num_threads {
         let tile_priorities = tile_priorities.clone();
         let render = render.clone();
         std::thread::spawn(move || loop {
@@ -121,7 +121,7 @@ fn main() {
         });
     }
 
-    let target_rate = std::time::Duration::from_micros(200000); // 5fps
+    let target_rate = std::time::Duration::from_micros(100000); // 10fps
     window.limit_update_rate(None);
 
     let mut prev_time = Instant::now();

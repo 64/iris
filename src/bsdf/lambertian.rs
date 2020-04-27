@@ -2,7 +2,7 @@
 #![allow(unused)]
 use crate::{
     bsdf::SampleableBsdf,
-    math::{Shading, Vec3},
+    math::{PdfSet, Shading, Vec3},
     sampling::{self, Sampler},
     spectrum::{SampleableSpectrum, SpectralSample, Spectrum, Wavelength},
 };
@@ -30,8 +30,8 @@ impl SampleableBsdf for LambertianBsdf {
         self.albedo.evaluate(hero_wavelength) / PI
     }
 
-    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4] {
-        [sampling::pdf_cosine_unit_hemisphere(wi.cos_theta()); 4]
+    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> PdfSet {
+        PdfSet::splat(sampling::pdf_cosine_unit_hemisphere(wi.cos_theta().abs()))
     }
 
     fn sample(
@@ -39,8 +39,9 @@ impl SampleableBsdf for LambertianBsdf {
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
         sampler: &mut Sampler,
-    ) -> (Vec3<Shading>, [f32; 4]) {
+    ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wi = sampling::cosine_unit_hemisphere(sampler.gen_0_1(), sampler.gen_0_1());
-        (wi, self.pdf(wi, wo, hero_wavelength))
+        let wi = if wo.same_hemisphere(wi) { wi } else { -wi };
+        (wi, self.evaluate(wi, wo, hero_wavelength), self.pdf(wi, wo, hero_wavelength))
     }
 }

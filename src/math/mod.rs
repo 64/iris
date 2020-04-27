@@ -3,12 +3,14 @@ mod ord_float;
 mod point3;
 mod ray;
 mod vec3;
+mod pdf;
 
 pub use matrix::*;
 pub use ord_float::*;
 pub use point3::*;
 pub use ray::*;
 pub use vec3::*;
+pub use pdf::*;
 
 // Coordinate spaces
 

@@ -47,5 +47,6 @@ pub fn cosine_unit_hemisphere<S>(r1: f32, r2: f32) -> Vec3<S> {
 }
 
 pub fn pdf_cosine_unit_hemisphere(cos_theta: f32) -> f32 {
+    debug_assert!(cos_theta >= 0.0);
     cos_theta / PI
 }

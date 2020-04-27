@@ -154,8 +154,7 @@ fn get_pixel_color(
         xyz_sum += render
             .scene
             .radiance(ray, hero_wavelength, &mut sampler)
-            .to_xyz(hero_wavelength)
-            / hero_wavelength.pdf();
+            .to_xyz(hero_wavelength);
     }
 
     xyz_sum * weight

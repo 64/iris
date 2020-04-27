@@ -13,6 +13,7 @@ Features (WIP):
 
 TODO:
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
+* Analytic light test (Le = 0.5, f = 0.5, radiance should be 1)
 * More shapes
 * PdfSet? Vec4?
 * Serialize scene from RON

@@ -1,5 +1,5 @@
 use crate::{
-    math::{Shading, Vec3},
+    math::{Shading, Vec3, PdfSet},
     sampling::Sampler,
     spectrum::{SpectralSample, Wavelength},
 };
@@ -10,6 +10,9 @@ pub use lambertian::LambertianBsdf;
 
 mod microfacet;
 pub use microfacet::MicrofacetBsdf;
+
+mod specular;
+pub use specular::SpecularBsdf;
 
 mod null;
 pub use null::NullBsdf;
@@ -23,7 +26,7 @@ pub trait SampleableBsdf {
         hero_wavelength: Wavelength,
     ) -> SpectralSample;
 
-    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> [f32; 4];
+    fn pdf(&self, wi: Vec3<Shading>, wo: Vec3<Shading>, hero_wavelength: Wavelength) -> PdfSet;
 
     // Returns the sampled direction as well as the PDF for each wavelength
     fn sample(
@@ -31,7 +34,11 @@ pub trait SampleableBsdf {
         wo: Vec3<Shading>,
         hero_wavelength: Wavelength,
         sampler: &mut Sampler,
-    ) -> (Vec3<Shading>, [f32; 4]);
+    ) -> (Vec3<Shading>, SpectralSample, PdfSet);
+
+    fn is_specular(&self) -> bool {
+        false
+    }
 }
 
 #[enum_dispatch(SampleableBsdf)]
@@ -39,5 +46,6 @@ pub trait SampleableBsdf {
 pub enum Bsdf {
     LambertianBsdf,
     MicrofacetBsdf,
+    SpecularBsdf,
     NullBsdf,
 }
