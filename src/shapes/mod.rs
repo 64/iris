@@ -16,6 +16,7 @@ pub struct Intersection {
     pub normal: Vec3,
     pub tangeant: Vec3,
     pub bitangeant: Vec3,
+    pub back_face: bool,
 }
 
 impl Intersection {
@@ -39,7 +40,7 @@ impl Intersection {
 pub trait Shape {
     fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)>;
 
-    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32);
+    fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32);
 }
 
 #[enum_dispatch(Shape)]
@@ -60,8 +61,8 @@ impl Shape for Primitive {
         self.geometry.intersect(ray)
     }
 
-    fn sample(&self, p: Point3, sampler: &mut Sampler) -> (Point3, f32) {
-        self.geometry.sample(p, sampler)
+    fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32) {
+        self.geometry.sample(hit, sampler)
     }
 }
 

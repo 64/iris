@@ -23,6 +23,13 @@ pub fn pdf_cone(cos_theta_max: f32) -> f32 {
     1.0 / (2.0 * PI * (1.0 - cos_theta_max))
 }
 
+pub fn unit_sphere<S>(r1: f32, r2: f32) -> Vec3<S> {
+    let z = 1.0 - 2.0 * r1;
+    let r = (1.0 - z.powi(2)).max(0.0).sqrt();
+    let phi = 2.0 * PI * r2;
+    Vec3::new(r * phi.cos(), r * phi.sin(), z)
+}
+
 fn concentric_disk(r1: f32, r2: f32) -> (f32, f32) {
     let x_off = 2.0 * r1 - 1.0;
     let y_off = 2.0 * r2 - 1.0;

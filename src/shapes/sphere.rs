@@ -37,12 +37,14 @@ impl Shape for Sphere {
                 let normal = (point - self.position) / self.radius;
                 let tangeant = Vec3::new(0.0, 1.0, 0.0).cross(normal).normalize();
                 let bitangeant = normal.cross(tangeant);
+                let back_face = normal.dot(ray.d()) >= 0.0;
                 return Some((
                     Intersection {
                         point,
                         normal,
                         tangeant,
                         bitangeant,
+                        back_face,
                     },
                     temp,
                 ));
@@ -54,12 +56,14 @@ impl Shape for Sphere {
                 let normal = (point - self.position) / self.radius;
                 let tangeant = Vec3::new(0.0, 1.0, 0.0).cross(normal).normalize();
                 let bitangeant = normal.cross(tangeant);
+                let back_face = normal.dot(ray.d()) >= 0.0;
                 return Some((
                     Intersection {
                         point,
                         normal,
                         tangeant,
                         bitangeant,
+                        back_face,
                     },
                     temp,
                 ));
@@ -70,12 +74,26 @@ impl Shape for Sphere {
     }
 
     // TODO: Clean up
-    fn sample(&self, point: Point3, sampler: &mut Sampler) -> (Point3, f32) {
+    fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32) {
         let (u0, u1) = (sampler.gen_0_1(), sampler.gen_0_1());
 
-        // Check we're not inside the sphere
-        debug_assert!(self.position.distance_squared(point) > self.radius.powi(2));
+        // Offset hit point so that the point lies on the right side of the sphere
+        let point = if hit.back_face {
+            hit.point - 0.001 * hit.normal
+        } else {
+            hit.point + 0.001 * hit.normal
+        };
 
+        // Sample uniformly if we're inside the sphere
+        if self.position.distance_squared(point) <= self.radius.powi(2) {
+            let light_normal = sampling::unit_sphere(u0, u1);
+            let light_point = self.position + self.radius * light_normal;
+            let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);            
+            let pdf = light_point.distance_squared(point) / (light_normal.dot((light_point - point).normalize()) * area);
+            return (light_point, pdf.max(0.001)); // Pretty terrible hack
+        }
+
+        // Outside the sphere, sample cone
         let sin_theta_max_2 = self.radius.powi(2) / self.position.distance_squared(point);
         let cos_theta_max = (1.0 - sin_theta_max_2).max(0.0).sqrt();
         let cos_theta = (1.0 - u0) + u0 * cos_theta_max;
@@ -96,7 +114,7 @@ impl Shape for Sphere {
         let normal =
             Vec3::<Local>::spherical_direction(sin_alpha, cos_alpha, phi, -wc_x, -wc_y, -wc);
 
-        let sampled_point_local = self.radius * 1.001 * normal.normalize();
+        let sampled_point_local = self.radius * normal.normalize();
         let sampled_point_world = self.local_to_world(sampled_point_local).to_point();
 
         debug_assert!(sampled_point_local.len() <= self.radius * 1.01);

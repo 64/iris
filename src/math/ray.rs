@@ -21,15 +21,33 @@ impl<S> Ray<S> {
     }
 
     pub fn spawn(o: Point3<S>, d: Vec3<S>, normal: Vec3<S>) -> Self {
+        // Check if we're on the inside or outside of the object
         let epsilon = if normal.dot(d) >= 0.0 {
             RAY_EPSILON
         } else {
-            // We're on the inside of the object
             -RAY_EPSILON
         };
 
         Self {
             o: o + epsilon * normal,
+            d: d.normalize(),
+            t_max: std::f32::INFINITY,
+        }
+    }
+
+    pub fn spawn_to(o: Point3<S>, p: Point3<S>, normal: Vec3<S>) -> Self {
+        // Check if we're on the inside or outside of the object
+        let epsilon = if normal.dot(o - p) >= 0.0 {
+            RAY_EPSILON
+        } else {
+            -RAY_EPSILON
+        };
+
+        let o = o + epsilon * normal;
+        let d = p - o;
+
+        Self {
+            o,
             d: d.normalize(),
             t_max: std::f32::INFINITY,
         }

@@ -96,3 +96,27 @@ impl std::ops::Add<PdfSet> for PdfSet {
         }
     }
 }
+
+impl std::ops::MulAssign<PdfSet> for PdfSet {
+    fn mul_assign(&mut self, other: PdfSet) {
+        *self = unsafe {
+            PdfSet {
+                data: _mm_mul_ps(self.data, other.data),
+            }
+            .assert_invariants()
+        };
+    }
+}
+
+impl std::ops::Div<f32> for PdfSet {
+    type Output = Self;
+
+    fn div(self, other: f32) -> Self {
+        debug_assert!(other != 0.0);
+
+        PdfSet {
+            data: unsafe { _mm_div_ps(self.data, _mm_set1_ps(other)) },
+        }
+        .assert_invariants()
+    }
+}

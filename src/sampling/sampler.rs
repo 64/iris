@@ -38,7 +38,7 @@ impl Sampler {
     }
 
     pub fn gen_array_index(&mut self, len: usize) -> usize {
-        assert!(len > 0);
+        debug_assert!(len > 0);
         self.gen_range(0.0, len as f32 - 0.5) as usize
     }
 }

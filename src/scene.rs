@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 use crate::{
     bsdf::{Bsdf, LambertianBsdf, MicrofacetBsdf, SampleableBsdf, SpecularBsdf},
-    math::{Point3, Ray, Shading, Vec3},
+    math::{PdfSet, Point3, Ray, Shading, Vec3},
     sampling::{self, mis, Sampler},
     shapes::{Geometry, Intersection, Primitive, Shape, Sphere},
     spectrum::{
@@ -36,13 +36,13 @@ impl Scene {
 
         scene.add_emissive_material(
             Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.25)),
-            ConstantSpectrum::new(0.25),
+            LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+            ConstantSpectrum::new(0.50),
         );
         //scene.add_emissive_material(
             //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-            //SpecularBsdf::new(ConstantSpectrum::new(0.25), 1.8),
-            //ConstantSpectrum::new(0.25),
+            //SpecularBsdf::new(ConstantSpectrum::new(0.50), 1.8),
+            //ConstantSpectrum::new(0.50),
         //);
 
         scene
@@ -89,17 +89,17 @@ impl Scene {
         ));
     }
 
-    fn background_emission(&self, ray: &Ray, _hero_wavelength: Wavelength) -> SpectralSample {
+    fn background_emission(&self, ray: &Ray, _wavelength: Wavelength) -> SpectralSample {
         SpectralSample::splat(0.0)
     }
 
-    fn intersection(&self, ray: &Ray, max_t: f32) -> Option<(&Primitive, Intersection)> {
+    fn intersection(&self, ray: &Ray) -> Option<(&Primitive, Intersection)> {
         let mut closest_t = INFINITY;
         let mut closest_prim_hit = None;
 
         for prim in &self.primitives {
             match prim.intersect(ray) {
-                Some((hit, t)) if t < closest_t && t > 0.0 && t < max_t => {
+                Some((hit, t)) if t < closest_t && t > 0.0 => {
                     closest_t = t;
                     closest_prim_hit = Some((prim, hit));
                 }
@@ -113,36 +113,42 @@ impl Scene {
     pub fn radiance(
         &self,
         mut ray: Ray,
-        hero_wavelength: Wavelength,
+        wavelength: Wavelength,
         sampler: &mut Sampler,
     ) -> SpectralSample {
-        let mut radiance = SpectralSample::splat(0.0);
         // Since we use 4 wavelengths
         // TODO: Should we start at 1.0 and compensate in another way?
-        let mut throughput = SpectralSample::splat(0.25);
+        let mut throughput = SpectralSample::splat(1.0);
+        let mut path_pdfs = PdfSet::splat(1.0);
+        let mut radiance = SpectralSample::splat(0.0);
+        let mut specular_bounce = false;
 
         for bounces in 0..MAX_DEPTH {
-            if let Some((primitive, hit)) = self.intersection(&ray, INFINITY) {
-                if let Some(light) = primitive.get_light(&self.lights) {
-                    radiance += throughput * light.evaluate(hero_wavelength);
+            if let Some((primitive, hit)) = self.intersection(&ray) {
+                if bounces == 0 || specular_bounce {
+                    if let Some(light) = primitive.get_light(&self.lights) {
+                        radiance += throughput * light.evaluate(wavelength);
+                    }
                 }
 
                 if let Some(bsdf) = primitive.get_material(&self.materials) {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
+                    radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, wavelength, sampler);
+
                     // Indirect lighting
                     let (bsdf_sampled_wi, bsdf_values, bsdf_pdfs) =
-                        bsdf.sample(shading_wo, hero_wavelength, sampler);
+                        bsdf.sample(shading_wo, wavelength, sampler);
                     if bsdf_pdfs.hero() == 0.0 {
                         break;
                     }
 
                     let cos_theta = bsdf_sampled_wi.cos_theta().abs();
-                    let mis_weight = mis::balance_heuristic_1(bsdf_pdfs);
-
-                    throughput *= bsdf_values * mis_weight * cos_theta / bsdf_pdfs.hero();
+                    throughput *= bsdf_values * cos_theta / bsdf_pdfs.hero();
 
                     ray = Ray::spawn(hit.point, hit.shading_to_world(bsdf_sampled_wi), hit.normal);
+                    specular_bounce = bsdf.is_specular();
+                    path_pdfs *= bsdf_pdfs;
 
                     // Russian roulette
                     if bounces >= MIN_DEPTH {
@@ -155,11 +161,101 @@ impl Scene {
                     }
                 }
             } else {
-                radiance += throughput * self.background_emission(&ray, hero_wavelength);
-                break;
+                radiance += throughput * self.background_emission(&ray, wavelength);
+                unreachable!();
+                //break;
             }
         }
 
-        radiance
+        dbg!(mis::balance_heuristic_1(path_pdfs) * radiance)
+    }
+
+    pub fn direct_lighting(
+        &self,
+        bsdf: &Bsdf,
+        shading_wo: Vec3<Shading>,
+        hit: &Intersection,
+        ray: &Ray,
+        wavelength: Wavelength,
+        sampler: &mut Sampler,
+    ) -> SpectralSample {
+        if bsdf.is_specular() {
+            return SpectralSample::splat(0.0);
+        }
+
+        let light_idx = sampler.gen_array_index(self.lights.len());
+        let light_weight = self.lights.len() as f32;
+
+        self.sample_light(
+            bsdf,
+            shading_wo,
+            hit,
+            light_idx,
+            light_weight,
+            ray,
+            wavelength,
+            sampler,
+        )
+    }
+
+    pub fn sample_light(
+        &self,
+        bsdf: &Bsdf,
+        shading_wo: Vec3<Shading>,
+        hit: &Intersection,
+        light_idx: usize,
+        light_weight: f32,
+        ray: &Ray,
+        wavelength: Wavelength,
+        sampler: &mut Sampler,
+    ) -> SpectralSample {
+        let mut radiance = SpectralSample::splat(0.0);
+
+        let light = &self.lights[light_idx];
+        let light_prim = &self.primitives[light.prim_index];
+        let (light_pos, light_pdf) = light_prim.sample(&hit, sampler);
+        let light_emission = light.data.evaluate(wavelength);
+
+        let ray_to_light = Ray::spawn_to(hit.point, light_pos, hit.normal);
+
+        if light_pdf > 0.0
+            && light_emission.sum() > 0.0 // TODO: !light_emission.is_zero()
+            && self
+                .intersection(&ray_to_light)
+                .map(|(prim, light_hit)| std::ptr::eq(prim, light_prim))
+                .unwrap_or(false)
+        {
+            let shading_wi = hit.world_to_shading(ray_to_light.d());
+            let bsdf_values = bsdf.evaluate(shading_wi, shading_wo, wavelength);
+            let bsdf_pdfs = bsdf.pdf(shading_wi, shading_wo, wavelength);
+            let cos_theta = shading_wi.cos_theta().abs();
+            //let mis_weight = mis::balance_heuristic_2(PdfSet::splat(light_pdf), bsdf_pdfs);
+            let mis_weight = light_pdf / (light_pdf + bsdf_pdfs.hero());
+
+            radiance += light_emission * bsdf_values * mis_weight * cos_theta / light_pdf;
+
+            let (bsdf_sampled_wi, bsdf_values, bsdf_pdfs) = bsdf.sample(shading_wo, wavelength, sampler); 
+            let world_wi = hit.shading_to_world(bsdf_sampled_wi);
+            let ray_to_light = Ray::spawn(hit.point, world_wi, hit.normal); 
+            let light_emission = light.data.evaluate(wavelength);
+
+            if bsdf_pdfs.hero() > 0.0
+                && light_emission.sum() > 0.0 // TODO: !light_emission.is_zero()
+                && self
+                    .intersection(&ray_to_light)
+                    .map(|(prim, light_hit)| std::ptr::eq(prim, light_prim))
+                    .unwrap_or(false)
+            {
+                let cos_theta = bsdf_sampled_wi.cos_theta().abs();
+                //let mis_weight = mis::balance_heuristic_2(bsdf_pdfs, PdfSet::splat(light_pdf));
+                let mis_weight = bsdf_pdfs.hero() / (light_pdf + bsdf_pdfs.hero());
+
+                radiance += light_emission * bsdf_values * mis_weight * cos_theta / bsdf_pdfs.hero();
+            }
+
+            radiance * light_weight
+        } else {
+            SpectralSample::splat(0.0)
+        }
     }
 }
