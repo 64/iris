@@ -3,7 +3,6 @@
 use super::{Vec3, World};
 use std::marker::PhantomData;
 
-#[derive(Debug)]
 pub struct Point3<System = World> {
     pub x: f32,
     pub y: f32,
@@ -60,6 +59,16 @@ impl<S> Copy for Point3<S> {}
 impl<S> Clone for Point3<S> {
     fn clone(&self) -> Self {
         *self
+    }
+}
+
+impl<S> std::fmt::Debug for Point3<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Point3")
+            .field("x", &self.x())
+            .field("y", &self.y())
+            .field("z", &self.z())
+            .finish()
     }
 }
 
