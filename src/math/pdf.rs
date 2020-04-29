@@ -120,3 +120,25 @@ impl std::ops::Div<f32> for PdfSet {
         .assert_invariants()
     }
 }
+
+impl std::ops::Mul<PdfSet> for PdfSet {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        PdfSet {
+            data: unsafe { _mm_mul_ps(self.data, other.data) },
+        }
+        .assert_invariants()
+    }
+}
+
+impl std::ops::Mul<f32> for PdfSet {
+    type Output = Self;
+
+    fn mul(self, other: f32) -> Self {
+        PdfSet {
+            data: unsafe { _mm_mul_ps(self.data, _mm_set1_ps(other)) },
+        }
+        .assert_invariants()
+    }
+}
