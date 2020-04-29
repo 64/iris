@@ -41,6 +41,8 @@ pub trait Shape {
     fn intersect(&self, ray: &Ray) -> Option<(Intersection, f32)>;
 
     fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32);
+
+    fn pdf(&self, hit: &Intersection, wi: Vec3) -> f32;
 }
 
 #[enum_dispatch(Shape)]
@@ -63,6 +65,10 @@ impl Shape for Primitive {
 
     fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32) {
         self.geometry.sample(hit, sampler)
+    }
+
+    fn pdf(&self, hit: &Intersection, wi: Vec3) -> f32 {
+        self.geometry.pdf(hit, wi)
     }
 }
 

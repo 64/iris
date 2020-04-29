@@ -1,5 +1,5 @@
 use crate::{
-    math::{Local, Point3, Ray, Vec3},
+    math::{self, Local, Point3, Ray, Vec3},
     sampling::{self, Sampler},
     shapes::{Intersection, Shape},
 };
@@ -77,19 +77,20 @@ impl Shape for Sphere {
     fn sample(&self, hit: &Intersection, sampler: &mut Sampler) -> (Point3, f32) {
         let (u0, u1) = (sampler.gen_0_1(), sampler.gen_0_1());
 
-        // Offset hit point so that the point lies on the right side of the sphere
+        // Offset so that the point lies on the right side of the sphere
         let point = if hit.back_face {
-            hit.point - 0.001 * hit.normal
+            math::offset_origin(hit.point, -hit.normal)
         } else {
-            hit.point + 0.001 * hit.normal
+            math::offset_origin(hit.point, hit.normal)
         };
 
         // Sample uniformly if we're inside the sphere
         if self.position.distance_squared(point) <= self.radius.powi(2) {
             let light_normal = sampling::unit_sphere(u0, u1);
             let light_point = self.position + self.radius * light_normal;
-            let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);            
-            let pdf = light_point.distance_squared(point) / (light_normal.dot((light_point - point).normalize()) * area);
+            let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);
+            let pdf = light_point.distance_squared(point)
+                / (light_normal.dot((light_point - point).normalize()) * area);
             return (light_point, pdf.max(0.001)); // Pretty terrible hack
         }
 
@@ -120,5 +121,31 @@ impl Shape for Sphere {
         debug_assert!(sampled_point_local.len() <= self.radius * 1.01);
 
         (sampled_point_world, sampling::pdf_cone(cos_theta_max))
+    }
+
+    fn pdf(&self, hit: &Intersection, wi: Vec3) -> f32 {
+        // Offset so that the point lies on the right side of the sphere
+        let point = if hit.back_face {
+            math::offset_origin(hit.point, -hit.normal)
+        } else {
+            math::offset_origin(hit.point, hit.normal)
+        };
+
+        // Intersect with geometry
+        if self.position.distance_squared(point) <= self.radius.powi(2) {
+            let ray = Ray::spawn(hit.point, wi, hit.normal);
+            if let Some((light_hit, _)) = self.intersect(&ray) {
+                let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);
+                let pdf = light_hit.point.distance_squared(point)
+                    / (light_hit.normal.dot((light_hit.point - point).normalize()) * area);
+                return pdf.max(0.001); // Pretty terrible hack
+            } else {
+                return 0.0;
+            }
+        }
+
+        let sin_theta_max_2 = self.radius.powi(2) / self.position.distance_squared(point);
+        let cos_theta_max = (1.0 - sin_theta_max_2).max(0.0).sqrt();
+        sampling::pdf_cone(cos_theta_max)
     }
 }

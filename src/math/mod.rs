@@ -10,6 +10,8 @@ pub use point3::*;
 pub use ray::*;
 pub use vec3::*;
 
+pub use ray::offset_origin;
+
 // Coordinate spaces
 
 #[derive(Debug, Copy, Clone, PartialEq)]

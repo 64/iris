@@ -8,7 +8,6 @@ const RAY_EPSILON: f32 = 0.001;
 pub struct Ray<System = World> {
     o: Point3<System>,
     d: Vec3<System>,
-    t_max: f32,
 }
 
 impl<S> Ray<S> {
@@ -16,26 +15,32 @@ impl<S> Ray<S> {
         Self {
             o,
             d: d.normalize(),
-            t_max: std::f32::INFINITY,
         }
     }
 
     pub fn spawn(o: Point3<S>, d: Vec3<S>, normal: Vec3<S>) -> Self {
-        Self {
-            o: offset_origin(o, normal),
-            d: d.normalize(),
-            t_max: std::f32::INFINITY,
-        }
-    }
-
-    pub fn spawn_to(o: Point3<S>, p: Point3<S>, normal: Vec3<S>) -> Self {
-        let o = offset_origin(o, normal);
-        let d = p - o;
+        let o = if d.dot(normal) < 0.0 {
+            offset_origin(o, -normal)
+        } else {
+            offset_origin(o, normal)
+        };
 
         Self {
             o,
             d: d.normalize(),
-            t_max: std::f32::INFINITY,
+        }
+    }
+
+    pub fn spawn_to(o: Point3<S>, p: Point3<S>, normal: Vec3<S>) -> Self {
+        let o = if (p - o).dot(normal) < 0.0 {
+            offset_origin(o, -normal)
+        } else {
+            offset_origin(o, normal)
+        };
+
+        Self {
+            o,
+            d: (p - o).normalize(),
         }
     }
 
@@ -47,17 +52,13 @@ impl<S> Ray<S> {
         self.d
     }
 
-    pub fn new_t_max(o: Point3<S>, d: Vec3<S>, t_max: f32) -> Self {
-        Self { o, d, t_max }
-    }
-
     pub fn point_at(&self, t: f32) -> Point3<S> {
         self.o + self.d * t
     }
 }
 
 // https://link.springer.com/content/pdf/10.1007%2F978-1-4842-4427-2_6.pdf
-fn offset_origin<S>(p: Point3<S>, n: Vec3<S>) -> Point3<S> {
+pub fn offset_origin<S>(p: Point3<S>, n: Vec3<S>) -> Point3<S> {
     const ORIGIN: f32 = 1.0 / 32.0;
     const FLOAT_SCALE: f32 = 1.0 / 65536.0;
     const INT_SCALE: f32 = 256.0;

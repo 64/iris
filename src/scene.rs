@@ -34,20 +34,20 @@ impl Scene {
     pub fn dummy() -> Self {
         let mut scene = Self::default();
 
-        //scene.add_emissive_material(
-            //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-            //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
-            //ConstantSpectrum::new(0.50),
-        //);
         scene.add_emissive_material(
-            Sphere::new(Point3::new(0.0, 0.0, 2.0), 1.0),
+            Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
             LambertianBsdf::new(ConstantSpectrum::new(0.50)),
             ConstantSpectrum::new(0.50),
         );
-        scene.add_material(
-            Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.80)),
-        );
+        //scene.add_emissive_material(
+            //Sphere::new(Point3::new(0.0, 0.0, 2.0), 1.0),
+            //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+            //ConstantSpectrum::new(0.50),
+        //);
+        //scene.add_material(
+            //Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
+            //LambertianBsdf::new(ConstantSpectrum::new(0.80)),
+        //);
 
         scene
     }
@@ -136,9 +136,7 @@ impl Scene {
                 if let Some(bsdf) = primitive.get_material(&self.materials) {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
-                    if !bsdf.is_specular() {
-                        radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
-                    }
+                    radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
 
                     // Indirect lighting
                     let (bsdf_sampled_wi, bsdf_values, bsdf_pdfs) =
@@ -166,6 +164,7 @@ impl Scene {
                 }
             } else {
                 radiance += mis::balance_heuristic_1(path_pdfs) * throughput * self.background_emission(&ray, wavelength);
+                unreachable!();
                 break;
             }
         }
@@ -252,6 +251,7 @@ impl Scene {
                     .map(|(prim, light_hit)| std::ptr::eq(prim, light_prim))
                     .unwrap_or(false)
             {
+                let light_pdf = light_prim.pdf(hit, world_wi);
                 let cos_theta = bsdf_sampled_wi.cos_theta().abs();
                 let mis_weight = mis::balance_heuristic_2(path_pdfs * bsdf_pdfs, path_pdfs * PdfSet::splat(light_pdf));
 
