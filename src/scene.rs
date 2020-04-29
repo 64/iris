@@ -34,20 +34,20 @@ impl Scene {
     pub fn dummy() -> Self {
         let mut scene = Self::default();
 
-        scene.add_emissive_material(
-            Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.50)),
-            ConstantSpectrum::new(0.50),
-        );
         //scene.add_emissive_material(
-            //Sphere::new(Point3::new(0.0, 0.0, 2.0), 1.0),
+            //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
             //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
             //ConstantSpectrum::new(0.50),
         //);
-        //scene.add_material(
-            //Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
-            //LambertianBsdf::new(ConstantSpectrum::new(0.80)),
-        //);
+        scene.add_emissive_material(
+            Sphere::new(Point3::new(0.0, 0.0, 2.0), 1.0),
+            LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+            ConstantSpectrum::new(0.50),
+        );
+        scene.add_material(
+            Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
+            LambertianBsdf::new(ConstantSpectrum::new(0.80)),
+        );
 
         scene
     }
@@ -120,13 +120,10 @@ impl Scene {
         wavelength: Wavelength,
         sampler: &mut Sampler,
     ) -> SpectralSample {
-        // Since we use 4 wavelengths
-        // TODO: Should we start at 1.0 and compensate in another way?
         let mut throughput = SpectralSample::splat(1.0);
+        let mut path_pdfs = PdfSet::splat(1.0);
         let mut radiance = SpectralSample::splat(0.0);
         let mut specular_bounce = false;
-
-        let mut path_pdfs = PdfSet::splat(1.0);
 
         for bounces in 0..MAX_DEPTH {
             if let Some((primitive, hit)) = self.intersection(&ray) {
@@ -139,7 +136,9 @@ impl Scene {
                 if let Some(bsdf) = primitive.get_material(&self.materials) {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
-                    radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
+                    if !bsdf.is_specular() {
+                        radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
+                    }
 
                     // Indirect lighting
                     let (bsdf_sampled_wi, bsdf_values, bsdf_pdfs) =
@@ -153,23 +152,20 @@ impl Scene {
 
                     ray = Ray::spawn(hit.point, hit.shading_to_world(bsdf_sampled_wi), hit.normal);
                     specular_bounce = bsdf.is_specular();
+                    path_pdfs *= bsdf_pdfs;
 
                     // Russian roulette
-                    let p_rr = if bounces >= MIN_DEPTH {
+                    if bounces >= MIN_DEPTH {
                         let p = throughput.sum().min(0.95);
                         if sampler.gen_0_1() > p {
                             break;
                         }
-                        throughput /= SpectralSample::splat(p);
-                        p
-                    } else {
-                        1.0
-                    };
 
-                    path_pdfs *= bsdf_pdfs;
+                        throughput /= SpectralSample::splat(p);
+                    }
                 }
             } else {
-                radiance += throughput * self.background_emission(&ray, wavelength);
+                radiance += mis::balance_heuristic_1(path_pdfs) * throughput * self.background_emission(&ray, wavelength);
                 break;
             }
         }

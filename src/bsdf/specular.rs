@@ -46,7 +46,7 @@ impl SampleableBsdf for SpecularBsdf {
     ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wi = Vec3::new(-wo.x(), -wo.y(), wo.z());
         let bsdf = self.reflected_color.evaluate(hero_wavelength)
-            * math::fresnel_dielectric(wi.cos_theta().abs(), self.eta, 1.0)
+            //* math::fresnel_dielectric(wi.cos_theta().abs(), self.eta, 1.0)
             / wi.cos_theta().abs();
         (wi, bsdf, PdfSet::splat(1.0))
     }
