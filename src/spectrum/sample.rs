@@ -22,6 +22,10 @@ impl SpectralSample {
         .assert_invariants()
     }
 
+    pub fn hero(self) -> f32 {
+        unsafe { _mm_cvtss_f32(self.data) }
+    }
+
     pub fn x(self) -> f32 {
         unsafe { _mm_cvtss_f32(self.data) }
     }

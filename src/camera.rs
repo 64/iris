@@ -9,7 +9,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(pos: Point3, aspect_ratio: f32) -> Self {
         let camera_to_clip =
-            Matrix::<CameraCoord, Clip>::projection(aspect_ratio, 0.1, 100.0, 100.0);
+            Matrix::<CameraCoord, Clip>::projection(aspect_ratio, 0.1, 100.0, 90.0);
         let world_to_camera = Matrix::translation(-Vec3::new(pos.x, pos.y, pos.z));
         let world_to_clip = &camera_to_clip * &world_to_camera;
 

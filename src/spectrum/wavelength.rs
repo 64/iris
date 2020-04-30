@@ -7,7 +7,7 @@ pub const LAMBDA_RANGE_NM: f32 = LAMBDA_MAX_NM - LAMBDA_MIN_NM;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Wavelength {
-    data: __m128,
+    pub data: __m128,
 }
 
 impl Wavelength {
@@ -21,9 +21,8 @@ impl Wavelength {
         }
     }
 
-    // TODO: We should use golden ratio sampling, I think
     pub fn sample(sampler: &mut Sampler) -> Self {
-        Self::new(sampler.gen_range(LAMBDA_MIN_NM, LAMBDA_MAX_NM))
+        Self::new(sampler.gen_golden_ratio() * LAMBDA_RANGE_NM + LAMBDA_MIN_NM)
     }
 
     pub fn pdf(self) -> f32 {

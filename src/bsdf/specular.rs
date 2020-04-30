@@ -12,14 +12,12 @@ use std::f32::consts::PI;
 #[derive(Debug, Clone)]
 pub struct SpecularBsdf {
     reflected_color: Spectrum,
-    eta: f32,
 }
 
 impl SpecularBsdf {
-    pub fn new<S: Into<Spectrum>>(s: S, eta: f32) -> Self {
+    pub fn new<S: Into<Spectrum>>(s: S) -> Self {
         Self {
             reflected_color: s.into(),
-            eta,
         }
     }
 }
@@ -46,7 +44,6 @@ impl SampleableBsdf for SpecularBsdf {
     ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wi = Vec3::new(-wo.x(), -wo.y(), wo.z());
         let bsdf = self.reflected_color.evaluate(hero_wavelength)
-            //* math::fresnel_dielectric(wi.cos_theta().abs(), self.eta, 1.0)
             / wi.cos_theta().abs();
         (wi, bsdf, PdfSet::splat(1.0))
     }

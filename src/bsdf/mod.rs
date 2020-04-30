@@ -5,6 +5,9 @@ use crate::{
 };
 use enum_dispatch::enum_dispatch;
 
+mod fresnel;
+pub use fresnel::FresnelBsdf;
+
 mod lambertian;
 pub use lambertian::LambertianBsdf;
 
@@ -47,5 +50,6 @@ pub enum Bsdf {
     LambertianBsdf,
     MicrofacetBsdf,
     SpecularBsdf,
+    FresnelBsdf,
     NullBsdf,
 }

@@ -125,7 +125,7 @@ impl Srgb {
 
 fn tonemap(val: f32) -> f32 {
     // Avoid division by zero
-    // val / (1.0 + val.abs())
+    //val / (1.0 + val.abs())
     val.clamp(0.0, 1.0)
 }
 

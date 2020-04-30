@@ -39,3 +39,5 @@ TODO:
 * Mipmapping / texture filtering
 * Catmull-Clark
 * Denoising
+* Make lighting match up with PBRT
+* License
