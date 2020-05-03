@@ -64,6 +64,7 @@ pub fn offset_origin<S>(p: Point3<S>, n: Vec3<S>) -> Point3<S> {
     const INT_SCALE: f32 = 256.0;
 
     // TODO: Are we sure that these float -> int casts are sound?
+    // TODO: SIMD this
     let of_i = [
         (INT_SCALE * n.x()) as i32,
         (INT_SCALE * n.y()) as i32,
@@ -71,14 +72,14 @@ pub fn offset_origin<S>(p: Point3<S>, n: Vec3<S>) -> Point3<S> {
     ];
 
     let p_i = [
-        f32::from_bits((p.x.to_bits() as i32 + if p.x < 0.0 { -of_i[0] } else { of_i[0] }) as u32),
-        f32::from_bits((p.y.to_bits() as i32 + if p.y < 0.0 { -of_i[1] } else { of_i[1] }) as u32),
-        f32::from_bits((p.z.to_bits() as i32 + if p.z < 0.0 { -of_i[2] } else { of_i[2] }) as u32),
+        f32::from_bits((p.x().to_bits() as i32 + if p.x() < 0.0 { -of_i[0] } else { of_i[0] }) as u32),
+        f32::from_bits((p.y().to_bits() as i32 + if p.y() < 0.0 { -of_i[1] } else { of_i[1] }) as u32),
+        f32::from_bits((p.z().to_bits() as i32 + if p.z() < 0.0 { -of_i[2] } else { of_i[2] }) as u32),
     ];
 
     Point3::new(
-        if p.x.abs() < ORIGIN { p.x + FLOAT_SCALE * n.x } else { p_i[0] },
-        if p.y.abs() < ORIGIN { p.y + FLOAT_SCALE * n.y } else { p_i[1] },
-        if p.z.abs() < ORIGIN { p.z + FLOAT_SCALE * n.z } else { p_i[2] },
+        if p.x.abs() < ORIGIN { p.x() + FLOAT_SCALE * n.x() } else { p_i[0] },
+        if p.y.abs() < ORIGIN { p.y() + FLOAT_SCALE * n.y() } else { p_i[1] },
+        if p.z.abs() < ORIGIN { p.z() + FLOAT_SCALE * n.z() } else { p_i[2] },
     )
 }

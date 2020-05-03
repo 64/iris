@@ -5,6 +5,8 @@ pub struct Sampler {
     scramble: u32,
     dimension: u32,
     index: u32,
+    sample_buffer: [f32; 4],
+    samples_in_buffer: usize,
 }
 
 impl Sampler {
@@ -13,23 +15,38 @@ impl Sampler {
             scramble: hash_u32((x as u32) ^ ((y as u32) << 16), seed),
             dimension: 0,
             index: sample_index as u32,
+            sample_buffer: [0.0; 4],
+            samples_in_buffer: 0,
         }
     }
 
     pub fn gen_0_1(&mut self) -> f32 {
-        let sample = if self.dimension < sobol::MAX_DIMENSION {
-            sobol::sample_owen(
-                self.dimension,
-                self.index,
-                hash_u32(self.dimension, self.scramble),
-            )
+        if self.samples_in_buffer > 0 {
+            self.samples_in_buffer -= 1;
+            self.sample_buffer[self.samples_in_buffer]
+        } else if self.samples_in_buffer == 0 {
+            // Buffer empty, refill
+            self.sample_buffer = if self.dimension < sobol::MAX_DIMENSION_SET {
+                sobol::sample_4d(
+                    self.index,
+                    self.dimension,
+                    hash_u32(self.dimension, self.scramble),
+                )
+            } else {
+                [
+                    hash_u32_to_f32((self.dimension + 0) ^ (self.index << 16), self.scramble),
+                    hash_u32_to_f32((self.dimension + 1) ^ (self.index << 16), self.scramble),
+                    hash_u32_to_f32((self.dimension + 2) ^ (self.index << 16), self.scramble),
+                    hash_u32_to_f32((self.dimension + 3) ^ (self.index << 16), self.scramble),
+                ]
+            };
+
+            self.dimension += 1;
+            self.samples_in_buffer = 3;
+            self.sample_buffer[3]
         } else {
-            hash_u32_to_f32(self.dimension ^ (self.index << 16), self.scramble)
-        };
-
-        self.dimension += 1;
-
-        sample
+            unreachable!()
+        }
     }
 
     pub fn gen_range(&mut self, lower: f32, upper: f32) -> f32 {

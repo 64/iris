@@ -29,7 +29,7 @@ pub fn sample(
 
     let nh = t1 * t1_v + t2 * t2_v + wo * (1.0 - t1.powi(2) - t2.powi(2)).max(0.0).sqrt();
 
-    Vec3::new(alpha_x * nh.x, alpha_y * nh.y, nh.z.max(0.0)).normalize()
+    Vec3::new(alpha_x * nh.x(), alpha_y * nh.y(), nh.z().max(0.0)).normalize()
 }
 
 pub fn evaluate(wh: Vec3<Shading>, alpha_x: f32, alpha_y: f32) -> f32 {

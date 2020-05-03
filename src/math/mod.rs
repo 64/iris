@@ -3,12 +3,14 @@ mod pdf;
 mod point3;
 mod ray;
 mod vec3;
+mod vec4;
 
 pub use matrix::*;
 pub use pdf::*;
 pub use point3::*;
 pub use ray::*;
 pub use vec3::*;
+pub use vec4::*;
 
 pub use ray::offset_origin;
 

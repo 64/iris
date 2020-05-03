@@ -36,28 +36,28 @@ impl Scene {
 
         let upsample_table = UpsampleTable::load();
 
-        //scene.add_emissive_material(
-            //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-            //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
-            //ConstantSpectrum::new(0.50),
-        //);
         scene.add_emissive_material(
-            Sphere::new(Point3::new(0.0, 3.2, 3.0), 1.0),
+            Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
             LambertianBsdf::new(ConstantSpectrum::new(0.50)),
-            ConstantSpectrum::new(3.0),
+            ConstantSpectrum::new(0.50),
         );
+        //scene.add_emissive_material(
+            //Sphere::new(Point3::new(0.0, 3.2, 3.0), 1.0),
+            //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+            //ConstantSpectrum::new(3.0),
+        //);
         //scene.add_material(
             //Sphere::new(Point3::new(0.0, 1.5, 7.0), 3.0),
             //LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1])),
         //);
-        scene.add_material(
-            Sphere::new(Point3::new(0.0, 1.0, 3.0), 1.0),
-            FresnelBsdf::new(ConstantSpectrum::new(1.0), ConstantSpectrum::new(1.0), 1.52),
-        );
-        scene.add_material(
-            Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.80)),
-        );
+        //scene.add_material(
+            //Sphere::new(Point3::new(0.0, -0.2, 3.0), 1.0),
+            //FresnelBsdf::new(ConstantSpectrum::new(1.0), ConstantSpectrum::new(1.0), 1.52),
+        //);
+        //scene.add_material(
+            //Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
+            //LambertianBsdf::new(ConstantSpectrum::new(0.80)),
+        //);
 
         scene
     }
@@ -137,16 +137,16 @@ impl Scene {
 
         for bounces in 0..MAX_DEPTH {
             if let Some((primitive, hit)) = self.intersection(&ray) {
-                if bounces == 0 || specular_bounce {
+                //if bounces == 0 || specular_bounce {
                     if let Some(light) = primitive.get_light(&self.lights) {
                         radiance += mis::balance_heuristic_1(path_pdfs) * throughput * light.evaluate(wavelength);
                     }
-                }
+                //}
 
                 if let Some(bsdf) = primitive.get_material(&self.materials) {
                     let shading_wo = hit.world_to_shading(-ray.d());
 
-                    radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
+                    //radiance += throughput * self.direct_lighting(bsdf, shading_wo, &hit, &ray, path_pdfs, wavelength, sampler);
 
                     // Indirect lighting
                     let (bsdf_sampled_wi, bsdf_values, bsdf_pdfs) =

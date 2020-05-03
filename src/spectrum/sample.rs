@@ -1,63 +1,44 @@
 use std::{arch::x86_64::*, mem};
 
-use crate::{color::Xyz, spectrum::Wavelength};
+use crate::{color::Xyz, spectrum::Wavelength, math::Vec4};
 
 #[derive(Copy, Clone)]
 pub struct SpectralSample {
-    data: __m128,
+    pub inner: Vec4,
 }
 
 impl SpectralSample {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
-            data: unsafe { _mm_set_ps(w, z, y, x) },
-        }
-        .assert_invariants()
+            inner: Vec4::new(x, y, z, w),
+        }.assert_invariants()
     }
 
     pub fn splat(xyzw: f32) -> Self {
         Self {
-            data: unsafe { _mm_set1_ps(xyzw) },
+            inner: Vec4::splat(xyzw),
         }
         .assert_invariants()
     }
 
     pub fn hero(self) -> f32 {
-        unsafe { _mm_cvtss_f32(self.data) }
+        self.inner.x()
     }
 
     pub fn x(self) -> f32 {
-        unsafe { _mm_cvtss_f32(self.data) }
+        self.inner.x()
     }
 
     pub fn y(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 1),
-            ))
-        }
+        self.inner.y()
     }
 
     pub fn z(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 2),
-            ))
-        }
+        self.inner.z()
     }
 
     pub fn w(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 3),
-            ))
-        }
+        self.inner.w()
     }
 
     pub fn to_xyz(self, wavelength: Wavelength) -> Xyz {
@@ -83,7 +64,7 @@ impl SpectralSample {
     fn assert_invariants(self) -> Self {
         // Check that self.data >= 0
         debug_assert!(
-            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.data, _mm_setzero_ps()))) }
+            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.inner.data, _mm_setzero_ps()))) }
                 == 1,
             "SpectralSample contains negative or NaN values: {:?}",
             self
@@ -94,19 +75,16 @@ impl SpectralSample {
 
     pub fn clamp(self, min: f32, max: f32) -> Self {
         Self {
-            data: unsafe { _mm_min_ps(_mm_max_ps(self.data, _mm_set1_ps(min)), _mm_set1_ps(max)) },
+            inner: self.inner.clamp(min, max)
         }
-        .assert_invariants()
     }
 
     pub fn sum(self) -> f32 {
-        // Can be optimized further
-        self.x() + self.y() + self.z() + self.w()
+        self.inner.sum()
     }
 
     pub fn is_zero(self) -> bool {
-        // Can be optimized further
-        self.x() == 0.0 && self.y() == 0.0 && self.z() == 0.0 && self.w() == 0.0
+        self.inner.is_zero()
     }
 }
 
@@ -126,7 +104,7 @@ impl std::ops::Mul<SpectralSample> for f32 {
 
     fn mul(self, other: SpectralSample) -> SpectralSample {
         SpectralSample {
-            data: unsafe { _mm_mul_ps(_mm_set1_ps(self), other.data) },
+            inner: self * other.inner,
         }
         .assert_invariants()
     }
@@ -136,12 +114,10 @@ impl std::ops::Mul<f32> for SpectralSample {
     type Output = Self;
 
     fn mul(self, other: f32) -> Self {
-        unsafe {
-            SpectralSample {
-                data: _mm_mul_ps(self.data, _mm_set1_ps(other)),
-            }
-            .assert_invariants()
+        SpectralSample {
+            inner: self.inner * other,
         }
+        .assert_invariants()
     }
 }
 
@@ -149,12 +125,10 @@ impl std::ops::Mul<SpectralSample> for SpectralSample {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        unsafe {
-            SpectralSample {
-                data: _mm_mul_ps(self.data, other.data),
-            }
-            .assert_invariants()
+        Self {
+            inner: self.inner * other.inner,
         }
+        .assert_invariants()
     }
 }
 
@@ -162,34 +136,24 @@ impl std::ops::Add<SpectralSample> for SpectralSample {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        unsafe {
-            SpectralSample {
-                data: _mm_add_ps(self.data, other.data),
-            }
-            .assert_invariants()
+        SpectralSample {
+            inner: self.inner + other.inner,
         }
+        .assert_invariants()
     }
 }
 
 impl std::ops::AddAssign<SpectralSample> for SpectralSample {
     fn add_assign(&mut self, other: SpectralSample) {
-        *self = unsafe {
-            SpectralSample {
-                data: _mm_add_ps(self.data, other.data),
-            }
-            .assert_invariants()
-        };
+        self.inner += other.inner;
+        self.assert_invariants();
     }
 }
 
 impl std::ops::MulAssign<SpectralSample> for SpectralSample {
     fn mul_assign(&mut self, other: SpectralSample) {
-        *self = unsafe {
-            SpectralSample {
-                data: _mm_mul_ps(self.data, other.data),
-            }
-            .assert_invariants()
-        };
+        self.inner *= other.inner;
+        self.assert_invariants();
     }
 }
 
@@ -197,19 +161,10 @@ impl std::ops::Div<SpectralSample> for f32 {
     type Output = SpectralSample;
 
     fn div(self, other: SpectralSample) -> SpectralSample {
-        unsafe {
-            debug_assert!(
-                _mm_movemask_epi8(mem::transmute(_mm_cmpneq_ps(other.data, _mm_setzero_ps())))
-                    == 0xffff,
-                "division by zero: {:?}",
-                self
-            );
-
-            SpectralSample {
-                data: _mm_div_ps(_mm_set1_ps(self), other.data),
-            }
-            .assert_invariants()
+        SpectralSample {
+            inner: self / other.inner
         }
+        .assert_invariants()
     }
 }
 
@@ -217,10 +172,8 @@ impl std::ops::Div<f32> for SpectralSample {
     type Output = Self;
 
     fn div(self, other: f32) -> Self {
-        debug_assert!(other != 0.0);
-
-        SpectralSample {
-            data: unsafe { _mm_div_ps(self.data, _mm_set1_ps(other)) },
+        Self {
+            inner: self.inner / other,
         }
         .assert_invariants()
     }
@@ -228,12 +181,8 @@ impl std::ops::Div<f32> for SpectralSample {
 
 impl std::ops::DivAssign<SpectralSample> for SpectralSample {
     fn div_assign(&mut self, other: SpectralSample) {
-        *self = unsafe {
-            SpectralSample {
-                data: _mm_div_ps(self.data, other.data),
-            }
-            .assert_invariants()
-        };
+        self.inner /= other.inner;
+        self.assert_invariants();
     }
 }
 
@@ -244,14 +193,14 @@ mod tests {
     #[test]
     #[cfg(debug_assertions)]
     #[should_panic]
-    fn test_div_by_zero_scalar() {
-        let _ = SpectralSample::new(1.0, 2.0, 3.0, 4.0) / 0.0;
+    fn test_nans() {
+        let _ = SpectralSample::new(1.0, f32::NAN, 1.0, 1.0);
     }
 
     #[test]
     #[cfg(debug_assertions)]
     #[should_panic]
-    fn test_div_by_zero_vector() {
-        let _ = 1.0 / SpectralSample::new(0.0, 2.0, 3.0, 4.0);
+    fn test_negatives() {
+        let _ = SpectralSample::new(1.0, -1.0, 1.0, 1.0);
     }
 }

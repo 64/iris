@@ -1,23 +1,25 @@
 use crate::sampling::Sampler;
-use std::arch::x86_64::*;
+use crate::math::Vec4;
 
 pub const LAMBDA_MIN_NM: f32 = 360.0;
 pub const LAMBDA_MAX_NM: f32 = 830.0;
 pub const LAMBDA_RANGE_NM: f32 = LAMBDA_MAX_NM - LAMBDA_MIN_NM;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct Wavelength {
-    pub data: __m128,
+    pub inner: Vec4,
 }
 
 impl Wavelength {
     pub fn new(hero: f32) -> Self {
+        debug_assert!(LAMBDA_MIN_NM <= hero && hero <= LAMBDA_MAX_NM);
+
         let y = rotate_n(hero, 1);
         let z = rotate_n(hero, 2);
         let w = rotate_n(hero, 3);
 
         Self {
-            data: unsafe { _mm_set_ps(w, z, y, hero) },
+            inner: Vec4::new(hero, y, z, w),
         }
     }
 
@@ -30,45 +32,27 @@ impl Wavelength {
     }
 
     pub fn hero(self) -> f32 {
-        unsafe { _mm_cvtss_f32(self.data) }
+        self.inner.x()
     }
 
     pub fn x(self) -> f32 {
-        unsafe { _mm_cvtss_f32(self.data) }
+        self.inner.x()
     }
 
     pub fn y(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 1),
-            ))
-        }
+        self.inner.y()
     }
 
     pub fn z(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 2),
-            ))
-        }
+        self.inner.z()
     }
 
     pub fn w(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 3),
-            ))
-        }
+        self.inner.w()
     }
 }
 
-pub fn rotate_n(hero: f32, n: usize) -> f32 {
+fn rotate_n(hero: f32, n: usize) -> f32 {
     let lambda = hero + (LAMBDA_RANGE_NM / 4.0) * (n as f32);
 
     // Perform modulo operation (so that lambda is always in range)

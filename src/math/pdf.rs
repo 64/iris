@@ -1,80 +1,57 @@
 use std::{arch::x86_64::*, mem};
+use crate::math::Vec4;
 
-// TODO: Can we reuse code for this and SpectralSample?
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct PdfSet {
-    data: __m128,
+    pub inner: Vec4,
 }
 
 impl PdfSet {
-    #[allow(unused)]
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
-            data: unsafe { _mm_set_ps(w, z, y, x) },
-        }
-        .assert_invariants()
+            inner: Vec4::new(x, y, z, w),
+        }.assert_invariants()
     }
 
     pub fn splat(xyzw: f32) -> Self {
         Self {
-            data: unsafe { _mm_set1_ps(xyzw) },
+            inner: Vec4::splat(xyzw),
         }
         .assert_invariants()
     }
 
-    fn x(self) -> f32 {
-        unsafe { _mm_cvtss_f32(self.data) }
-    }
-
-    fn y(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 1),
-            ))
-        }
-    }
-
-    fn z(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 2),
-            ))
-        }
-    }
-
-    fn w(self) -> f32 {
-        unsafe {
-            _mm_cvtss_f32(_mm_shuffle_ps(
-                self.data,
-                self.data,
-                _MM_SHUFFLE(3, 2, 1, 3),
-            ))
-        }
-    }
-
     pub fn hero(self) -> f32 {
-        self.x()
+        self.inner.x()
+    }
+
+    pub fn x(self) -> f32 {
+        self.inner.x()
+    }
+
+    pub fn y(self) -> f32 {
+        self.inner.y()
+    }
+
+    pub fn z(self) -> f32 {
+        self.inner.z()
+    }
+
+    pub fn w(self) -> f32 {
+        self.inner.w()
     }
 
     pub fn sum(self) -> f32 {
-        // Can be optimized further
-        self.x() + self.y() + self.z() + self.w()
+        self.inner.sum()
     }
 
-    #[allow(unused)]
     pub fn is_zero(self) -> bool {
-        // Can be optimized further
-        self.x() == 0.0 && self.y() == 0.0 && self.z() == 0.0 && self.w() == 0.0
+        self.inner.is_zero()
     }
 
     #[inline(always)]
     fn assert_invariants(self) -> Self {
         debug_assert!(
-            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.data, _mm_setzero_ps()))) }
+            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.inner.data, _mm_setzero_ps()))) }
                 == 1,
             "PdfSet contains negative or NaN values: {:?}",
             self
@@ -84,27 +61,32 @@ impl PdfSet {
     }
 }
 
+impl std::fmt::Debug for PdfSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list()
+            .entry(&self.x())
+            .entry(&self.y())
+            .entry(&self.z())
+            .entry(&self.w())
+            .finish()
+    }
+}
+
 impl std::ops::Add<PdfSet> for PdfSet {
     type Output = PdfSet;
 
     fn add(self, other: Self) -> Self {
-        unsafe {
-            Self {
-                data: _mm_add_ps(self.data, other.data),
-            }
-            .assert_invariants()
+        Self {
+            inner: self.inner + other.inner,
         }
+        .assert_invariants()
     }
 }
 
 impl std::ops::MulAssign<PdfSet> for PdfSet {
     fn mul_assign(&mut self, other: PdfSet) {
-        *self = unsafe {
-            PdfSet {
-                data: _mm_mul_ps(self.data, other.data),
-            }
-            .assert_invariants()
-        };
+        self.inner *= other.inner;
+        self.assert_invariants();
     }
 }
 
@@ -112,10 +94,8 @@ impl std::ops::Div<f32> for PdfSet {
     type Output = Self;
 
     fn div(self, other: f32) -> Self {
-        debug_assert!(other != 0.0);
-
-        PdfSet {
-            data: unsafe { _mm_div_ps(self.data, _mm_set1_ps(other)) },
+        Self {
+            inner: self.inner / other,
         }
         .assert_invariants()
     }
@@ -125,8 +105,8 @@ impl std::ops::Mul<PdfSet> for PdfSet {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        PdfSet {
-            data: unsafe { _mm_mul_ps(self.data, other.data) },
+        Self {
+            inner: self.inner * other.inner,
         }
         .assert_invariants()
     }
@@ -137,7 +117,7 @@ impl std::ops::Mul<f32> for PdfSet {
 
     fn mul(self, other: f32) -> Self {
         PdfSet {
-            data: unsafe { _mm_mul_ps(self.data, _mm_set1_ps(other)) },
+            inner: self.inner * other,
         }
         .assert_invariants()
     }

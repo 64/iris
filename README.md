@@ -14,7 +14,6 @@ Features (WIP):
 TODO:
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
 * Analytic light integration test (Le = 0.5, f = 0.5, radiance should be 1)
-* Unify simd code for Vec4y types (Wavelength, Spectrum, PdfSet)
 * More shapes
 * Serialize scene from RON
 * Write own sobol code
@@ -27,7 +26,7 @@ TODO:
 * Camera lens sim + vigenetting + DoF
 * Volume rendering
 * Motion blur / animation
-* Real time preview
+* Real time rasterizing preview 
 * Own PNG / HDR code
 * PGO
 * Clean up normal offseting

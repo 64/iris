@@ -27,7 +27,8 @@ impl FresnelBsdf {
 
     fn refractive_index(&self, wavelength: f32) -> f32 {
         //1.5220 + (0.00459 * 1e-12) / (wavelength * 1e-9).powi(2)
-        1.5220 + 0.1000 / (wavelength.powi(2) * 1e-6)
+        //1.5220 + 0.1000 / (wavelength.powi(2) * 1e-6)
+        1.000 + 0.459 / (wavelength.powi(2) * 1e-6)
     }
 }
 

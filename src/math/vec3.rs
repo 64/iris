@@ -1,57 +1,54 @@
 #![allow(dead_code)]
 
-use super::{Point3, Shading, World};
+use super::{Vec4, Point3, Shading, World};
 use std::marker::PhantomData;
 
-#[derive(Debug)]
+// TODO: USe vec4 internally
 pub struct Vec3<System = World> {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub inner: Vec4,
     _coord: PhantomData<System>,
 }
 
 impl<S> Vec3<S> {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        let ret = Self {
-            x,
-            y,
-            z,
+        Self {
+            inner: Vec4::new(x, y, z, 1.0),
             _coord: PhantomData,
-        };
-
-        ret.assert_invariants();
-
-        ret
-    }
-
-    fn assert_invariants(&self) {
-        debug_assert!(self.x.is_finite());
-        debug_assert!(self.y.is_finite());
-        debug_assert!(self.z.is_finite());
+        }
     }
 
     pub fn splat(x: f32) -> Self {
         Self::new(x, x, x)
     }
 
+    fn assert_invariants(self) -> Self {
+        // TODO: Optimize
+        debug_assert!(self.x().is_finite());
+        debug_assert!(self.y().is_finite());
+        debug_assert!(self.z().is_finite());
+
+        self
+    }
+
     pub fn x(self) -> f32 {
-        self.x
+        self.inner.x()
     }
 
     pub fn y(self) -> f32 {
-        self.y
+        self.inner.y()
     }
 
     pub fn z(self) -> f32 {
-        self.z
+        self.inner.z()
     }
 
     pub fn dot(self, other: Self) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z
+        // TODO: Optimize this
+        self.inner.x() * other.inner.x() + self.inner.y() * other.inner.y() + self.inner.z() * other.inner.z()
     }
 
     pub fn cross(self, other: Self) -> Self {
+        // TODO: SIMD this
         Vec3::new(
             self.y() * other.z() - self.z() * other.y(),
             self.z() * other.x() - self.x() * other.z(),
@@ -68,10 +65,12 @@ impl<S> Vec3<S> {
     }
 
     pub fn normalize(self) -> Self {
+        // TODO: Optimise, use approximate rsqrt
         self / self.len()
     }
 
     pub fn to_point(self) -> Point3<S> {
+        // TODO: Point3::from_inner?
         Point3::new(self.x(), self.y(), self.z())
     }
 
@@ -97,7 +96,10 @@ impl<S> Vec3<S> {
     }
 
     pub fn coerce_system<V>(self) -> Vec3<V> {
-        Vec3::new(self.x(), self.y(), self.z())
+        Vec3 {
+            inner: self.inner,
+            _coord: PhantomData,
+        }
     }
 
     pub fn face_forward(self, normal: Self) -> Self {
@@ -117,15 +119,27 @@ impl<S> Clone for Vec3<S> {
     }
 }
 
+impl<S> std::fmt::Debug for Vec3<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vec3")
+            .field("x", &self.x())
+            .field("y", &self.y())
+            .field("z", &self.z())
+            .finish()
+    }
+}
+
 impl<S> std::cmp::PartialEq<f32> for Vec3<S> {
     fn eq(&self, other: &f32) -> bool {
-        self.x == *other && self.y == *other && self.z == *other
+        // TODO: Optimize
+        self.x() == *other && self.y() == *other && self.z() == *other
     }
 }
 
 impl<S> std::cmp::PartialEq<Vec3<S>> for Vec3<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y && self.z == other.z
+        // TODO: Optimize
+        self.x() == other.x() && self.y() == other.y() && self.z() == other.z()
     }
 }
 
@@ -133,15 +147,16 @@ impl<S> std::ops::Add for Vec3<S> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Self::new(self.x + other.x, self.y + other.y, self.z + other.z)
+        Self {
+            inner: self.inner + other.inner,
+            _coord: PhantomData,
+        }
     }
 }
 
 impl<S> std::ops::AddAssign for Vec3<S> {
     fn add_assign(&mut self, other: Self) {
-        self.x += other.x;
-        self.y += other.y;
-        self.z += other.z;
+        self.inner += other.inner;
         self.assert_invariants();
     }
 }
@@ -150,15 +165,17 @@ impl<S> std::ops::Add<f32> for Vec3<S> {
     type Output = Self;
 
     fn add(self, other: f32) -> Self {
-        Self::new(self.x + other, self.y + other, self.z + other)
+        Self {
+            inner: self.inner + other,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::AddAssign<f32> for Vec3<S> {
     fn add_assign(&mut self, other: f32) {
-        self.x += other;
-        self.y += other;
-        self.z += other;
+        self.inner += other;
         self.assert_invariants();
     }
 }
@@ -167,15 +184,17 @@ impl<S> std::ops::Sub for Vec3<S> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        Self::new(self.x - other.x, self.y - other.y, self.z - other.z)
+        Self {
+            inner: self.inner - other.inner,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::SubAssign for Vec3<S> {
     fn sub_assign(&mut self, other: Self) {
-        self.x -= other.x;
-        self.y -= other.y;
-        self.z -= other.z;
+        self.inner -= other.inner;
         self.assert_invariants();
     }
 }
@@ -184,15 +203,17 @@ impl<S> std::ops::Sub<f32> for Vec3<S> {
     type Output = Self;
 
     fn sub(self, other: f32) -> Self {
-        Self::new(self.x - other, self.y - other, self.z - other)
+        Vec3 {
+            inner: self.inner - other,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::SubAssign<f32> for Vec3<S> {
     fn sub_assign(&mut self, other: f32) {
-        self.x -= other;
-        self.y -= other;
-        self.z -= other;
+        self.inner -= other;
         self.assert_invariants();
     }
 }
@@ -201,7 +222,11 @@ impl<S> std::ops::Mul<Vec3<S>> for f32 {
     type Output = Vec3<S>;
 
     fn mul(self, other: Vec3<S>) -> Vec3<S> {
-        Vec3::new(self * other.x, self * other.y, self * other.z)
+        Vec3 {
+            inner: self * other.inner,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
@@ -209,15 +234,17 @@ impl<S> std::ops::Mul<f32> for Vec3<S> {
     type Output = Self;
 
     fn mul(self, other: f32) -> Self {
-        Self::new(self.x * other, self.y * other, self.z * other)
+        Self {
+            inner: self.inner * other,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::MulAssign<f32> for Vec3<S> {
     fn mul_assign(&mut self, other: f32) {
-        self.x *= other;
-        self.y *= other;
-        self.z *= other;
+        self.inner *= other;
         self.assert_invariants();
     }
 }
@@ -226,15 +253,17 @@ impl<S> std::ops::Div for Vec3<S> {
     type Output = Self;
 
     fn div(self, other: Self) -> Self {
-        Self::new(self.x / other.x, self.y / other.y, self.z / other.z)
+        Self {
+            inner: self.inner / other.inner,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::DivAssign for Vec3<S> {
     fn div_assign(&mut self, other: Self) {
-        self.x /= other.x;
-        self.y /= other.y;
-        self.z /= other.z;
+        self.inner /= other.inner;
         self.assert_invariants();
     }
 }
@@ -243,15 +272,17 @@ impl<S> std::ops::Div<f32> for Vec3<S> {
     type Output = Self;
 
     fn div(self, other: f32) -> Self {
-        Self::new(self.x / other, self.y / other, self.z / other)
+        Self {
+            inner: self.inner / other,
+            _coord: PhantomData,
+        }
+        .assert_invariants()
     }
 }
 
 impl<S> std::ops::DivAssign<f32> for Vec3<S> {
     fn div_assign(&mut self, other: f32) {
-        self.x /= other;
-        self.y /= other;
-        self.z /= other;
+        self.inner /= other;
         self.assert_invariants();
     }
 }
@@ -260,7 +291,10 @@ impl<S> std::ops::Neg for Vec3<S> {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self::new(-self.x, -self.y, -self.z)
+        Self {
+            inner: -self.inner,
+            _coord: PhantomData,
+        }
     }
 }
 
@@ -316,6 +350,6 @@ impl Vec3<Shading> {
     }
 
     pub fn same_hemisphere(self, other: Self) -> bool {
-        self.z * other.z > 0.0
+        self.z() * other.z() > 0.0
     }
 }

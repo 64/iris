@@ -4,7 +4,7 @@
 use std::{env, fs::File, io::Write, path::Path};
 
 /// How many components to generate.
-const NUM_DIMENSIONS: usize = 1024;
+const NUM_DIMENSIONS: usize = 128;
 
 /// What file to generate the numbers from.
 const DIRECTION_NUMBERS_TEXT: &str = include_str!("direction_numbers/new-joe-kuo-5.1024.txt");
@@ -18,17 +18,34 @@ fn main() {
     let vectors = generate_direction_vectors(NUM_DIMENSIONS);
 
     // Write dimensions limit.
-    f.write_all(format!("pub const MAX_DIMENSION: u32 = {};\n", NUM_DIMENSIONS).as_bytes())
+    f.write_all(format!("const MAX_DIMENSION: u32 = {};\n", NUM_DIMENSIONS).as_bytes())
         .unwrap();
 
     // Write the vectors.
-    f.write_all(format!("pub const VECTORS: &[[u{0}; {0}]] = &[\n", SOBOL_BITS).as_bytes())
+    // We write them in a rather atypical way because of how the library
+    // uses them.  First, we interleave the numbers of each set of four
+    // dimensions, for SIMD evaluation.  Second, each number is written
+    // with reversed bits, to avoid needing to reverse them before scrambling.
+    f.write_all(format!("const REV_VECTORS: &[[[u{0}; 4]; {0}]] = &[\n", SOBOL_BITS).as_bytes())
         .unwrap();
-    for v in vectors.iter() {
+    for d4 in vectors.chunks_exact(4) {
         f.write_all("  [\n".as_bytes()).unwrap();
-        for n in v.iter() {
-            f.write_all(format!("    0x{:08x},\n", *n).as_bytes())
-                .unwrap();
+        for ((a, b), (c, d)) in d4[0]
+            .iter()
+            .zip(d4[1].iter())
+            .zip(d4[2].iter().zip(d4[3].iter()))
+        {
+            f.write_all(
+                format!(
+                    "    [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}],\n",
+                    a.reverse_bits(),
+                    b.reverse_bits(),
+                    c.reverse_bits(),
+                    d.reverse_bits()
+                )
+                .as_bytes(),
+            )
+            .unwrap();
         }
         f.write_all("  ],\n".as_bytes()).unwrap();
     }
@@ -44,8 +61,8 @@ fn main() {
 // From these papers:
 //
 //     * S. Joe and F. Y. Kuo, Remark on Algorithm 659: Implementing Sobol's
-//       quasirandom sequence generator, ACM Trans. Math. Softw. 29, 49-57
-//       (2003)
+//       quasirandom sequence generator, ACM Trans. Math. Softw. 29,
+//       49-57 (2003)
 //
 //     * S. Joe and F. Y. Kuo, Constructing Sobol sequences with better
 //       two-dimensional projections, SIAM J. Sci. Comput. 30, 2635-2654 (2008)
@@ -64,12 +81,14 @@ fn main() {
 //
 //       * Redistributions in binary form must reproduce the above copyright
 //         notice, this list of conditions and the following disclaimer in the
-//         documentation and/or other materials provided with the distribution.
+//         documentation and/or other materials provided with the
+//         distribution.
 //
 //       * Neither the names of the copyright holders nor the names of the
-//         University of New South Wales and the University of Waikato and its
-//         contributors may be used to endorse or promote products derived from
-//         this software without specific prior written permission.
+//         University of New South Wales and the University of Waikato
+//         and its contributors may be used to endorse or promote products
+//         derived from this software without specific prior written
+//         permission.
 //
 //     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
 //     EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -83,7 +102,7 @@ fn main() {
 //     OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 //     IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-type SobolInt = u16;
+type SobolInt = u32;
 const SOBOL_BITS: usize = std::mem::size_of::<SobolInt>() * 8;
 
 pub fn generate_direction_vectors(dimensions: usize) -> Vec<[SobolInt; SOBOL_BITS]> {
