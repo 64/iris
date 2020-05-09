@@ -2,7 +2,7 @@
 #![allow(unused)]
 use crate::{
     bsdf::SampleableBsdf,
-    math::{self, PdfSet, Shading, Vec3},
+    math::{self, PdfSet, Shading, Vec3, Vec4},
     sampling::{self, Sampler},
     spectrum::{SampleableSpectrum, SpectralSample, Spectrum, Wavelength},
 };
@@ -13,22 +13,23 @@ use std::f32::consts::PI;
 pub struct FresnelBsdf {
     reflected_color: Spectrum,
     transmitted_color: Spectrum,
-    eta: f32,
+    base_ior: f32,
+    dispersion: f32,
 }
 
 impl FresnelBsdf {
-    pub fn new<S: Into<Spectrum>, T: Into<Spectrum>>(s: S, t: T, eta: f32) -> Self {
+    pub fn new<S: Into<Spectrum>, T: Into<Spectrum>>(s: S, t: T, base_ior: f32, dispersion: f32) -> Self {
         Self {
             reflected_color: s.into(),
             transmitted_color: t.into(),
-            eta,
+            base_ior,
+            dispersion,
         }
     }
 
-    fn refractive_index(&self, wavelength: f32) -> f32 {
-        //1.5220 + (0.00459 * 1e-12) / (wavelength * 1e-9).powi(2)
-        //1.5220 + 0.1000 / (wavelength.powi(2) * 1e-6)
-        1.000 + 0.459 / (wavelength.powi(2) * 1e-6)
+    fn refractive_index(&self, wavelength: Wavelength) -> Vec4 {
+        //1.5220 + 0.00459 / (wavelength.inner * wavelength.inner * 1e-6)
+        self.base_ior + self.dispersion / (wavelength.inner * wavelength.inner * 1e-6)
     }
 }
 
@@ -52,28 +53,23 @@ impl SampleableBsdf for FresnelBsdf {
         wavelength: Wavelength,
         sampler: &mut Sampler,
     ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
-        // TODO: SIMD this, this is a mess
+        // TODO: SIMD this
         let eta_a = 1.0;
-        let eta_b = SpectralSample::from_function(wavelength, |wl| self.refractive_index(wl));
-        let fresnel = [
+        let eta_b = self.refractive_index(wavelength);
+        let fresnel = Vec4::new(
             math::fresnel_dielectric(wo.cos_theta(), eta_a, eta_b.x()),
             math::fresnel_dielectric(wo.cos_theta(), eta_a, eta_b.y()),
             math::fresnel_dielectric(wo.cos_theta(), eta_a, eta_b.z()),
             math::fresnel_dielectric(wo.cos_theta(), eta_a, eta_b.w()),
-        ];
+        );
 
-        if sampler.gen_0_1() < fresnel[0] {
+        if sampler.gen_0_1() < fresnel.hero() {
             let wi = Vec3::new(-wo.x(), -wo.y(), wo.z());
             let bsdf = self.reflected_color.evaluate(wavelength) / wi.cos_theta().abs();
             (
                 wi,
-                SpectralSample::new(
-                    bsdf.x() * fresnel[0],
-                    bsdf.y() * fresnel[1],
-                    bsdf.z() * fresnel[2],
-                    bsdf.w() * fresnel[3],
-                ),
-                PdfSet::new(fresnel[0], fresnel[1], fresnel[2], fresnel[3]),
+                SpectralSample::from(bsdf.inner * fresnel),
+                PdfSet::from(fresnel),
             )
         } else {
             let (eta_i, eta_t) = if wo.cos_theta() > 0.0 {
@@ -86,13 +82,13 @@ impl SampleableBsdf for FresnelBsdf {
                 math::refract(wo, Vec3::new(0.0, 0.0, 1.0).face_forward(wo), eta_i / eta_t)
             {
                 let ft =
-                    self.transmitted_color.evaluate(wavelength) * (1.0 - fresnel[0]) * eta_i.powi(2)
+                    self.transmitted_color.evaluate(wavelength) * (1.0 - fresnel.hero()) * eta_i.powi(2)
                         / eta_t.powi(2);
                 let hero_value = ft.hero() / wi.cos_theta().abs();
                 (
                     wi,
                     SpectralSample::new(hero_value, 0.0, 0.0, 0.0),
-                    PdfSet::new(1.0 - fresnel[0], 0.0, 0.0, 0.0),
+                    PdfSet::new(1.0 - fresnel.hero(), 0.0, 0.0, 0.0),
                 )
             } else {
                 // Total internal reflection

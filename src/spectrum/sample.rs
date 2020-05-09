@@ -99,6 +99,12 @@ impl std::fmt::Debug for SpectralSample {
     }
 }
 
+impl std::convert::From<Vec4> for SpectralSample {
+    fn from(inner: Vec4) -> Self {
+        Self { inner }
+    }
+}
+
 impl std::ops::Mul<SpectralSample> for f32 {
     type Output = SpectralSample;
 

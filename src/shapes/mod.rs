@@ -53,9 +53,9 @@ pub enum Geometry {
 
 #[derive(Debug, Clone)]
 pub struct Primitive {
-    geometry: Geometry,
-    light_index: Option<usize>,
-    material_index: Option<usize>,
+    pub geometry: Geometry,
+    pub light_index: Option<usize>,
+    pub material_index: Option<usize>,
 }
 
 impl Shape for Primitive {

@@ -40,7 +40,7 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 100;
+const TOTAL_SPP: usize = 5000;
 
 static DONE: AtomicBool = AtomicBool::new(false);
 static SAMPLES_TAKEN: AtomicUsize = AtomicUsize::new(0);

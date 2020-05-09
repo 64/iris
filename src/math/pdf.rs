@@ -44,10 +44,6 @@ impl PdfSet {
         self.inner.sum()
     }
 
-    pub fn is_zero(self) -> bool {
-        self.inner.is_zero()
-    }
-
     #[inline(always)]
     fn assert_invariants(self) -> Self {
         debug_assert!(
@@ -69,6 +65,12 @@ impl std::fmt::Debug for PdfSet {
             .entry(&self.z())
             .entry(&self.w())
             .finish()
+    }
+}
+
+impl std::convert::From<Vec4> for PdfSet {
+    fn from(inner: Vec4) -> Self {
+        Self { inner }
     }
 }
 

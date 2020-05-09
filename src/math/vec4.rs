@@ -23,6 +23,10 @@ impl Vec4 {
         }
     }
 
+    pub fn hero(self) -> f32 {
+        unsafe { _mm_cvtss_f32(self.data) }
+    }
+
     pub fn x(self) -> f32 {
         unsafe { _mm_cvtss_f32(self.data) }
     }
@@ -152,6 +156,18 @@ impl std::ops::Add<f32> for Vec4 {
         unsafe {
             Vec4 {
                 data: _mm_add_ps(self.data, _mm_set1_ps(other)),
+            }
+        }
+    }
+}
+
+impl std::ops::Add<Vec4> for f32 {
+    type Output = Vec4;
+
+    fn add(self, other: Vec4) -> Vec4 {
+        unsafe {
+            Vec4 {
+                data: _mm_add_ps(_mm_set1_ps(self), other.data),
             }
         }
     }
