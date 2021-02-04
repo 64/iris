@@ -1,6 +1,5 @@
 use std::{
     cmp::{Ord, Ordering},
-    time::Instant,
 };
 
 use crate::{
@@ -13,7 +12,7 @@ use crate::{
 
 const MAX_TILE_WIDTH: usize = 64;
 const MAX_TILE_HEIGHT: usize = 64;
-const SAMPLE_CHUNK_SIZE: usize = 20;
+//const SAMPLE_CHUNK_SIZE: usize = 5000;
 const SEED: u32 = 123_456_789;
 
 #[derive(Debug, Clone)]
@@ -26,8 +25,10 @@ pub struct TileData {
     pub distance_from_center: f32,
     pub remaining_samples: usize,
     pub accum_buffer: Vec<Xyz>,
-    pub temp_buffer: Vec<u32>,
+    pub temp_buffer: Vec<(f32, f32, f32)>,
 }
+
+// TODO: This code is very messy and I am not particularly happy with it
 
 impl TileData {
     pub fn new(render: &Render, idx: usize) -> Option<Self> {
@@ -68,27 +69,30 @@ impl TileData {
             pixel_y: pixel_start_y,
             remaining_samples: render.spp,
             accum_buffer: vec![Xyz::new(0.0, 0.0, 0.0); this_tile_pixels],
-            temp_buffer: vec![0; this_tile_pixels],
+            temp_buffer: vec![(0.0, 0.0, 0.0); this_tile_pixels],
         })
     }
 
     pub fn render(mut self, render: &Render) -> Self {
-        let start_time = Instant::now();
+        //use time::Instant;
+        //let start_time = Instant::now();
 
+        // The below is needed for progressive rendering
         while self.remaining_samples > 0
-            && Instant::now()
-                .saturating_duration_since(start_time)
-                .as_secs_f32()
-                <= 0.1
+            //&& Instant::now()
+                //.saturating_duration_since(start_time)
+                //.as_secs_f32()
+                //<= 0.1
         {
-            let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
+            //let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
+            let new_remaining_samples = 0;
             let samples_this_iter = self.remaining_samples - new_remaining_samples;
             let weight = render.spp as f32 / ((render.spp - new_remaining_samples) as f32);
 
-            for (i, (pixel, accumulator)) in self
-                .temp_buffer
+            for (i, (accumulator, pixel)) in self
+                .accum_buffer
                 .iter_mut()
-                .zip(self.accum_buffer.iter_mut())
+                .zip(self.temp_buffer.iter_mut())
                 .enumerate()
             {
                 let xyz = get_pixel_color(
@@ -101,7 +105,8 @@ impl TileData {
 
                 *accumulator += xyz;
 
-                *pixel = (*accumulator * weight).to_srgb().to_u32();
+                let rgb = (*accumulator * weight).to_rgb_hdr();
+                *pixel = (rgb.0.max(0.0), rgb.1.max(0.0), rgb.2.max(0.0));
             }
 
             self.remaining_samples = new_remaining_samples;

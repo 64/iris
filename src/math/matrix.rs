@@ -74,7 +74,7 @@ impl<U, V> Matrix<U, V> {
         };
 
         let mut inv = Matrix::<V, U>::id();
-        std::mem::replace(&mut inv.m, self.m);
+        inv.m = self.m;
 
         for i in 0..4 {
             let mut irow = 0;

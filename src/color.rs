@@ -33,10 +33,15 @@ impl Xyz {
         }
     }
 
-    pub fn to_srgb(self) -> Srgb {
+    pub fn to_rgb_hdr(self) -> (f32, f32, f32) {
         let r = 3.240479 * self.x - 1.537150 * self.y - 0.498535 * self.z;
         let g = -0.969256 * self.x + 1.875991 * self.y + 0.041556 * self.z;
         let b = 0.055648 * self.x - 0.204043 * self.y + 1.057311 * self.z;
+        (r, g, b)
+    }
+
+    pub fn to_srgb(self) -> Srgb {
+        let (r, g, b) = self.to_rgb_hdr();
         Srgb::new(
             gamma_correct(tonemap(r)),
             gamma_correct(tonemap(g)),
@@ -103,9 +108,9 @@ impl std::ops::Div<f32> for Xyz {
 
 #[derive(Debug)]
 pub struct Srgb {
-    r: f32,
-    g: f32,
-    b: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
 
 impl Srgb {

@@ -9,6 +9,10 @@ version = "0.1.0"
 authors = ["Matt Taylor"]
 edition = "2018"
 
+[features]
+default = []
+progressive = ["minifb"]
+
 [profile.dev]
 opt-level = 1
 
@@ -18,7 +22,8 @@ debug = true
 codegen-units = 1
 
 [dependencies]
-minifb = "0.16.0"
 num_cpus = "1.13.0"
+enum_dispatch = "0.3.5"
 sobol = { path = "crates/sobol" }
-enum_dispatch = "0.3.0"
+minifb = { version = "0.19.2", optional = true }
+openexr = "0.7.1"

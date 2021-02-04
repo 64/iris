@@ -1,17 +1,13 @@
 #![feature(stdarch)]
-#![feature(clamp)]
-use minifb::{Key, Window, WindowOptions};
 
 use std::{
     collections::BinaryHeap,
-    io::Write,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
         Mutex,
         RwLock,
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 mod bsdf;
@@ -29,9 +25,9 @@ pub struct Render {
     pub width: usize,
     pub height: usize,
     pub spp: usize,
-    pub buffer: RwLock<Vec<u32>>,
     pub scene: Scene,
     pub camera: Camera,
+    pub buffer: RwLock<Vec<(f32, f32, f32)>>,
 }
 
 use camera::Camera;
@@ -40,18 +36,15 @@ use tile::TileData;
 
 const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 5000;
-
-static DONE: AtomicBool = AtomicBool::new(false);
-static SAMPLES_TAKEN: AtomicUsize = AtomicUsize::new(0);
+const TOTAL_SPP: usize = 512;
 
 fn main() {
     let render = Arc::new(Render {
         width: WIDTH,
         height: HEIGHT,
         spp: TOTAL_SPP,
-        buffer: RwLock::new(vec![0; WIDTH * HEIGHT]),
         scene: scene::Scene::dummy(),
+        buffer: RwLock::new(vec![(0.0, 0.0, 0.0); WIDTH * HEIGHT]),
         camera: Camera::new(
             math::Point3::new(0.0, 0.0, 0.0),
             (WIDTH as f32) / (HEIGHT as f32),
@@ -67,6 +60,77 @@ fn main() {
             .collect::<BinaryHeap<TileData>>(),
     ));
 
+    let num_threads = std::env::var("NTHREADS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or_else(num_cpus::get);
+
+    do_render(render, tile_priorities, num_threads);
+}
+
+#[cfg(not(feature = "progressive"))]
+fn do_render(
+    render: Arc<Render>,
+    tile_priorities: Arc<Mutex<BinaryHeap<TileData>>>,
+    num_threads: usize,
+) {
+    println!("Starting render, {}x{}@{}spp...", render.width, render.height, render.spp);
+
+    let start = Instant::now();
+
+    let threads = (0..num_threads).map(|_| {
+        let tile_priorities = tile_priorities.clone();
+        let render = render.clone();
+        std::thread::spawn(move || loop {
+            let popped = tile_priorities.lock().unwrap().pop();
+            match popped {
+                Some(tile) => {
+                    tile.render(&render);
+                }
+                None => {
+                    break;
+                }
+            }
+        })
+    }).collect::<Vec<_>>();
+
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    let elapsed = start.elapsed().as_secs_f32();
+    println!(
+        "Done in {}s ({}m ray/s)",
+        elapsed,
+        ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed),
+    );
+
+    use openexr::{PixelType, ScanlineOutputFile, Header, FrameBuffer};
+
+    let mut file = std::fs::File::create("out.exr").unwrap();
+    let mut output_file = ScanlineOutputFile::new(
+        &mut file,
+        Header::new()
+            .set_resolution(render.width as u32, render.height as u32)
+            .add_channel("R", PixelType::FLOAT)
+            .add_channel("G", PixelType::FLOAT)
+            .add_channel("B", PixelType::FLOAT)).unwrap();
+
+    let pixels = render.buffer.read().unwrap();
+    //dbg!(&pixels);
+    let mut fb = FrameBuffer::new(render.width as u32, render.height as u32);
+    fb.insert_channels(&["R", "G", "B"], &pixels);
+    output_file.write_pixels(&fb).unwrap();
+}
+
+#[cfg(feature = "progressive")]
+fn do_render(
+    render: Arc<Render>,
+    tile_priorities: Arc<Mutex<BinaryHeap<TileData>>>,
+    num_threads: usize,
+) {
+    use minifb::{Key, Window, WindowOptions};
+
     let mut window = Window::new(
         "Iris",
         WIDTH,
@@ -78,10 +142,9 @@ fn main() {
     )
     .expect("failed to create window");
 
-    let num_threads = std::env::var("NTHREADS")
-        .ok()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or_else(num_cpus::get);
+    let samples_taken = AtomicUsize::new(0);
+    static DONE: AtomicBool = AtomicBool::new(false);
+
 
     println!("Starting render...");
 
@@ -97,7 +160,7 @@ fn main() {
                     let samples_before = tile.remaining_samples;
                     let tile = tile.render(&render);
                     let samples_after = tile.remaining_samples;
-                    SAMPLES_TAKEN.fetch_add(
+                    samples_taken.fetch_add(
                         (samples_before - samples_after) * tile.width * tile.height,
                         Ordering::Relaxed,
                     );
@@ -129,7 +192,7 @@ fn main() {
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if !DONE.load(Ordering::Relaxed) {
             let progress =
-                SAMPLES_TAKEN.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
+                samples_taken.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
             print!("Progress: {:>5.2}%\r", 100.0 * progress);
             std::io::stdout().flush().unwrap();
         }

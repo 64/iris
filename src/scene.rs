@@ -19,7 +19,7 @@ use crate::{
 
 use std::f32::INFINITY;
 
-const MAX_DEPTH: u32 = 30;
+const MAX_DEPTH: u32 = 10;
 const MIN_DEPTH: u32 = 3;
 
 #[derive(Default)]
@@ -37,36 +37,36 @@ impl Scene {
         let upsample_table = UpsampleTable::load();
 
         // Light oven
-        // scene.add_emissive_material(
-        // Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
-        // LambertianBsdf::new(ConstantSpectrum::new(0.50)),
-        // ConstantSpectrum::new(0.50),
+         //scene.add_emissive_material(
+         //Sphere::new(Point3::new(0.0, 0.0, 0.0), 1.0),
+         //LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+         //ConstantSpectrum::new(0.50),
         //);
 
         scene.add_emissive_material(
             // Sphere::new(Point3::new(0.0, 3.2, 3.0), 1.0),
             Sphere::new(Point3::new(0.0, 2.3, 3.0), 1.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.50)),
+            LambertianBsdf::new(ConstantSpectrum::new(0.5)),
             ConstantSpectrum::new(3.0),
         );
-        scene.add_material(
-            Sphere::new(Point3::new(0.0, 1.5, 7.0), 3.0),
-            LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1])),
-        );
-        // TODO: Fix light on bottom of glass sphere (there should be some, check PBRT)
+        //scene.add_material(
+            //Sphere::new(Point3::new(0.0, 1.5, 7.0), 3.0),
+            ////LambertianBsdf::new(upsample_table.get_spectrum([0.8, 0.1, 0.1])),
+            //LambertianBsdf::new(ConstantSpectrum::new(0.5)),
+        //);
         scene.add_material(
             Sphere::new(Point3::new(0.0, -0.2, 3.0), 1.0),
-            FresnelBsdf::new(
-                ConstantSpectrum::new(1.0),
-                ConstantSpectrum::new(1.0),
-                1.5220,
-                0.00459,
-            ),
-            // LambertianBsdf::new(ConstantSpectrum::new(0.5)),
+            //FresnelBsdf::new(
+                //ConstantSpectrum::new(1.0),
+                //ConstantSpectrum::new(1.0),
+                //1.5220,
+                //0.00459,
+            //),
+            LambertianBsdf::new(ConstantSpectrum::new(0.5)),
         );
         scene.add_material(
             Sphere::new(Point3::new(0.0, -101.5, 2.0), 100.0),
-            LambertianBsdf::new(ConstantSpectrum::new(0.80)),
+            LambertianBsdf::new(ConstantSpectrum::new(0.8)),
         );
 
         scene
@@ -121,6 +121,7 @@ impl Scene {
         let mut closest_t = INFINITY;
         let mut closest_prim_hit = None;
 
+        // Note: for some reason, the equivalent code with iterators is *much* slower
         for prim in &self.primitives {
             match prim.intersect(ray) {
                 Some((hit, t)) if t < closest_t && t > 0.0 => {
@@ -195,10 +196,11 @@ impl Scene {
                     let bsdf_values = bsdf.evaluate(shading_wi, shading_wo, wavelength);
                     let bsdf_pdfs = bsdf.pdf(shading_wi, shading_wo, wavelength);
                     let cos_theta = shading_wi.cos_theta().abs();
-                    let mis_weight = mis::balance_heuristic_2(
-                        path_pdfs * PdfSet::splat(light_pdf),
-                        path_pdfs * bsdf_pdfs,
-                    );
+                    //let mis_weight = mis::balance_heuristic_2(
+                        //path_pdfs * PdfSet::splat(light_pdf),
+                        //path_pdfs * bsdf_pdfs,
+                    //);
+                    let mis_weight = mis::balance_heuristic_1(path_pdfs * PdfSet::splat(light_pdf));
 
                     radiance += throughput
                         * light_emission
@@ -206,7 +208,7 @@ impl Scene {
                         * mis_weight
                         * cos_theta
                         * light_pick_weight
-                        / light_pdf;
+                         / light_pdf;
                 }
             }
 
@@ -223,8 +225,19 @@ impl Scene {
 
             throughput *= bsdf_values * cos_theta / bsdf_pdfs.hero();
 
+            // Russian roulette
+            if bounces >= MIN_DEPTH {
+                let p = throughput.sum().min(0.95);
+                if sampler.gen_0_1() > p {
+                    break;
+                }
+
+                throughput /= SpectralSample::splat(p);
+            }
+
             int = self.intersection(&ray);
-            if !bsdf.is_specular() {
+            //if !bsdf.is_specular() {
+            if false {
                 if let Some((next_prim, next_hit)) = &int {
                     if let Some(light) = next_prim.get_light(&self.lights) {
                         let light_emission = light.evaluate(wavelength);
@@ -246,16 +259,6 @@ impl Scene {
 
             path_pdfs *= bsdf_pdfs;
             specular_bounce = bsdf.is_specular();
-
-            // Russian roulette
-            if bounces >= MIN_DEPTH {
-                let p = throughput.sum().min(0.95);
-                if sampler.gen_0_1() > p {
-                    break;
-                }
-
-                throughput /= SpectralSample::splat(p);
-            }
         }
 
         radiance

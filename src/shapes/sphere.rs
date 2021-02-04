@@ -91,7 +91,8 @@ impl Shape for Sphere {
             let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);
             let pdf = light_point.distance_squared(point)
                 / (light_normal.dot((light_point - point).normalize()) * area);
-            return (light_point, pdf.max(0.001)); // Pretty terrible hack
+            // Terrible hack, prevents us dividing by a tiny pdf and getting a massive firefly
+            return (light_point, pdf.max(0.001));
         }
 
         // Outside the sphere, sample cone

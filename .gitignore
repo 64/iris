@@ -7,3 +7,6 @@ callgrind.*
 data/*.hdr
 data/*.coeff
 data/*.csv
+.cargo/**/*
+*.exr
+*.png

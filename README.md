@@ -4,14 +4,15 @@ CPU path tracer written in Rust.
 
 Features (WIP):
 * Spectral rendering (including wavelength-dependent path generation) with [Hero Wavelength Spectral Sampling](https://cgg.mff.cuni.cz/~wilkie/Website/EGSR_14_files/WNDWH14HWSS.pdf)
-* Spectral upsampling (Jakob et al.)
+* Spectral upsampling ([Jakob et al.](http://rgl.epfl.ch/publications/Jakob2019Spectral))
 * Parallel and progressive refinement
+* Multiple importance sampling
 * Russian roulette
 * Next event estimation
-* Multiple importance sampling
 * HDR environment maps
 
 TODO:
+* Add README image
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
 * Analytic light integration test (Le = 0.5, f = 0.5, radiance should be 1)
 * More shapes
