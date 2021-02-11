@@ -349,6 +349,11 @@ mod tests {
     }
 
     #[test]
+    fn test_neg() {
+        assert!((-Vec4::splat(1.0) - Vec4::splat(-1.0)).is_zero());
+    }
+
+    #[test]
     fn test_dot() {
         assert_eq!(Vec4::new(1.0, 2.0, 3.0, 4.0).dot(Vec4::new(4.0, 3.0, 2.0, 1.0)), 20.0);
     }

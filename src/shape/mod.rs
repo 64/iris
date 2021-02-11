@@ -11,6 +11,7 @@ use crate::{
 mod sphere;
 pub use sphere::Sphere;
 
+#[derive(Debug)]
 pub struct Intersection {
     pub point: Point3,
     pub normal: Vec3,

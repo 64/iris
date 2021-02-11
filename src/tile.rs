@@ -1,9 +1,8 @@
-use std::{
-    cmp::{Ord, Ordering},
-};
+use std::cmp::{Ord, Ordering};
 
 use crate::{
     color::Xyz,
+    integrator::Integrator,
     math::{Point3, Ray, Vec3},
     sampling::Sampler,
     spectrum::Wavelength,
@@ -12,7 +11,7 @@ use crate::{
 
 const MAX_TILE_WIDTH: usize = 64;
 const MAX_TILE_HEIGHT: usize = 64;
-//const SAMPLE_CHUNK_SIZE: usize = 5000;
+// const SAMPLE_CHUNK_SIZE: usize = 5000;
 const SEED: u32 = 123_456_789;
 
 #[derive(Debug, Clone)]
@@ -74,17 +73,18 @@ impl TileData {
     }
 
     pub fn render(mut self, render: &Render) -> Self {
-        //use time::Instant;
-        //let start_time = Instant::now();
+        // use time::Instant;
+        // let start_time = Instant::now();
 
         // The below is needed for progressive rendering
         while self.remaining_samples > 0
-            //&& Instant::now()
-                //.saturating_duration_since(start_time)
-                //.as_secs_f32()
-                //<= 0.1
+        //&& Instant::now()
+        //.saturating_duration_since(start_time)
+        //.as_secs_f32()
+        //<= 0.1
         {
-            //let new_remaining_samples = self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
+            // let new_remaining_samples =
+            // self.remaining_samples.saturating_sub(SAMPLE_CHUNK_SIZE);
             let new_remaining_samples = 0;
             let samples_this_iter = self.remaining_samples - new_remaining_samples;
             let weight = render.spp as f32 / ((render.spp - new_remaining_samples) as f32);
@@ -157,8 +157,8 @@ fn get_pixel_color(
         let ray = Ray::new(origin_world, target_world - origin_world);
 
         xyz_sum += render
-            .scene
-            .radiance(ray, hero_wavelength, &mut sampler)
+            .integrator
+            .radiance(&render.scene, ray, hero_wavelength, &mut sampler)
             .to_xyz(hero_wavelength);
     }
 

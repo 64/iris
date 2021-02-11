@@ -2,24 +2,31 @@
 
 use std::{
     collections::BinaryHeap,
-    sync::{
-        Arc,
-        Mutex,
-        RwLock,
-    },
+    sync::{Arc, Mutex, RwLock},
     time::Instant,
 };
 
 mod bsdf;
 mod camera;
 mod color;
+mod integrator;
 mod math;
 mod sampling;
 mod scene;
-mod shapes;
+mod shape;
 mod spectrum;
 mod tile;
 mod types;
+
+use camera::Camera;
+use scene::Scene;
+use tile::TileData;
+
+const WIDTH: usize = 512;
+const HEIGHT: usize = 512;
+const TOTAL_SPP: usize = 100;
+
+type CurrentIntegrator = integrator::swss_naive::SwssNaive;
 
 pub struct Render {
     pub width: usize,
@@ -28,21 +35,33 @@ pub struct Render {
     pub scene: Scene,
     pub camera: Camera,
     pub buffer: RwLock<Vec<(f32, f32, f32)>>,
+    pub integrator: CurrentIntegrator,
 }
 
-use camera::Camera;
-use scene::Scene;
-use tile::TileData;
-
-const WIDTH: usize = 512;
-const HEIGHT: usize = 512;
-const TOTAL_SPP: usize = 512;
-
 fn main() {
+    //use shape::Shape;
+    //let sphere = shape::Sphere::new(math::Point3::splat(0.0), 1.0);
+    //for i in 0..200 {
+        //let sample = sphere.sample(
+            //&shape::Intersection {
+                //point: math::Point3::new(2.0, -2.0, 20.0),
+                //normal: math::Vec3::splat(0.0),
+                //tangeant: math::Vec3::splat(0.0),
+                //bitangeant: math::Vec3::splat(0.0),
+                //back_face: false,
+            //},
+            //&mut sampling::Sampler::new(0, 0, i, 0),
+        //);
+        //println!("{} {} {} {}", sample.0.x(), sample.0.y(), sample.0.z(), sample.1);
+    //}
+
+    //std::process::exit(0);
+
     let render = Arc::new(Render {
         width: WIDTH,
         height: HEIGHT,
         spp: TOTAL_SPP,
+        integrator: CurrentIntegrator::default(),
         scene: scene::Scene::dummy(),
         buffer: RwLock::new(vec![(0.0, 0.0, 0.0); WIDTH * HEIGHT]),
         camera: Camera::new(
@@ -74,25 +93,30 @@ fn do_render(
     tile_priorities: Arc<Mutex<BinaryHeap<TileData>>>,
     num_threads: usize,
 ) {
-    println!("Starting render, {}x{}@{}spp...", render.width, render.height, render.spp);
+    println!(
+        "Starting render, {}x{}@{}spp...",
+        render.width, render.height, render.spp
+    );
 
     let start = Instant::now();
 
-    let threads = (0..num_threads).map(|_| {
-        let tile_priorities = tile_priorities.clone();
-        let render = render.clone();
-        std::thread::spawn(move || loop {
-            let popped = tile_priorities.lock().unwrap().pop();
-            match popped {
-                Some(tile) => {
-                    tile.render(&render);
+    let threads = (0..num_threads)
+        .map(|_| {
+            let tile_priorities = tile_priorities.clone();
+            let render = render.clone();
+            std::thread::spawn(move || loop {
+                let popped = tile_priorities.lock().unwrap().pop();
+                match popped {
+                    Some(tile) => {
+                        tile.render(&render);
+                    }
+                    None => {
+                        break;
+                    }
                 }
-                None => {
-                    break;
-                }
-            }
+            })
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     for thread in threads {
         thread.join().unwrap();
@@ -105,7 +129,8 @@ fn do_render(
         ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed),
     );
 
-    use openexr::{PixelType, ScanlineOutputFile, Header, FrameBuffer};
+    // Output EXR file
+    use openexr::{FrameBuffer, Header, PixelType, ScanlineOutputFile};
 
     let mut file = std::fs::File::create("out.exr").unwrap();
     let mut output_file = ScanlineOutputFile::new(
@@ -114,10 +139,12 @@ fn do_render(
             .set_resolution(render.width as u32, render.height as u32)
             .add_channel("R", PixelType::FLOAT)
             .add_channel("G", PixelType::FLOAT)
-            .add_channel("B", PixelType::FLOAT)).unwrap();
+            .add_channel("B", PixelType::FLOAT),
+    )
+    .unwrap();
 
     let pixels = render.buffer.read().unwrap();
-    //dbg!(&pixels);
+    // dbg!(&pixels);
     let mut fb = FrameBuffer::new(render.width as u32, render.height as u32);
     fb.insert_channels(&["R", "G", "B"], &pixels);
     output_file.write_pixels(&fb).unwrap();
@@ -144,7 +171,6 @@ fn do_render(
 
     let samples_taken = AtomicUsize::new(0);
     static DONE: AtomicBool = AtomicBool::new(false);
-
 
     println!("Starting render...");
 

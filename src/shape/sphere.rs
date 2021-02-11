@@ -1,7 +1,7 @@
 use crate::{
     math::{self, Local, Point3, Ray, Vec3},
     sampling::{self, Sampler},
-    shapes::{Intersection, Shape},
+    shape::{Intersection, Shape},
 };
 
 #[derive(Debug, Clone)]
@@ -91,35 +91,45 @@ impl Shape for Sphere {
             let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);
             let pdf = light_point.distance_squared(point)
                 / (light_normal.dot((light_point - point).normalize()) * area);
-            // Terrible hack, prevents us dividing by a tiny pdf and getting a massive firefly
+            // Terrible hack, prevents us dividing by a tiny pdf and getting a massive
+            // firefly
             return (light_point, pdf.max(0.001));
         }
 
+        // https://github.com/mmp/pbrt-v3/blob/master/src/shapes/sphere.cpp#L232
+
         // Outside the sphere, sample cone
-        let sin_theta_max_2 = self.radius.powi(2) / self.position.distance_squared(point);
-        let cos_theta_max = (1.0 - sin_theta_max_2).max(0.0).sqrt();
-        let cos_theta = (1.0 - u0) + u0 * cos_theta_max;
-        let sin_theta = (1.0 - cos_theta.powi(2)).max(0.0).sqrt();
-        let phi = u1 * 2.0 * std::f32::consts::PI;
-
-        let dc = self.position.distance(point);
-        let ds = dc * cos_theta
-            - (self.radius.powi(2) - (dc * sin_theta).powi(2))
-                .max(0.0)
-                .sqrt();
-        let cos_alpha = (dc.powi(2) + self.radius.powi(2) - ds.powi(2)) / (2.0 * dc * self.radius);
-        let sin_alpha = (1.0 - cos_alpha.powi(2)).max(0.0).sqrt();
-
-        let wc = (self.position - point).normalize().coerce_system();
+        let dc = self.position.distance(hit.point);
+        let wc = (self.position - hit.point).normalize().coerce_system();
         let (wc_x, wc_y) = wc.coordinate_system_from_unit();
+
+        let sin_theta_max = self.radius / dc;
+        let sin_theta_max_2 = sin_theta_max.powi(2);
+        let cos_theta_max = (1.0 - sin_theta_max_2).max(0.0).sqrt();
+
+        let (sin_theta_2, cos_theta) = if sin_theta_max_2 < 0.00068523 {
+            let sin_theta_2 = sin_theta_max_2 * u0;
+            (sin_theta_2, (1.0 - sin_theta_2).max(0.0).sqrt())
+        } else {
+            let cos_theta = (cos_theta_max - 1.0) * u0 + 1.0;
+            (1.0 - cos_theta.powi(2), cos_theta)
+        };
+
+        let cos_alpha = sin_theta_2 / sin_theta_max
+            + cos_theta * (1.0 - sin_theta_2 / sin_theta_max_2).max(0.0).sqrt();
+        let sin_alpha = (1.0 - cos_alpha.powi(2)).max(0.0).sqrt();
+        let phi = u1 * 2.0 * std::f32::consts::PI;
 
         let normal =
             Vec3::<Local>::spherical_direction(sin_alpha, cos_alpha, phi, -wc_x, -wc_y, -wc);
 
+        // TODO: How come this isn't quite normalized?
         let sampled_point_local = self.radius * normal.normalize();
         let sampled_point_world = self.local_to_world(sampled_point_local).to_point();
 
-        debug_assert!(sampled_point_local.len() <= self.radius * 1.01);
+        // dbg!(normal);
+        debug_assert!(sampled_point_world.distance(self.position) >= self.radius * 0.98);
+        debug_assert!(sampled_point_world.distance(self.position) <= self.radius * 1.02);
 
         (sampled_point_world, sampling::pdf_cone(cos_theta_max))
     }
@@ -139,13 +149,14 @@ impl Shape for Sphere {
                 let area = 4.0 * std::f32::consts::PI * self.radius.powi(2);
                 let pdf = light_hit.point.distance_squared(point)
                     / (light_hit.normal.dot((light_hit.point - point).normalize()) * area);
+                // return pdf;
                 return pdf.max(0.001); // Pretty terrible hack
             } else {
                 return 0.0;
             }
         }
 
-        let sin_theta_max_2 = self.radius.powi(2) / self.position.distance_squared(point);
+        let sin_theta_max_2 = self.radius.powi(2) / self.position.distance_squared(hit.point);
         let cos_theta_max = (1.0 - sin_theta_max_2).max(0.0).sqrt();
         sampling::pdf_cone(cos_theta_max)
     }

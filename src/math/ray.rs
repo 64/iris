@@ -2,7 +2,7 @@
 
 use super::{Point3, Vec3, World};
 
-const RAY_EPSILON: f32 = 0.001;
+pub const RAY_EPSILON: f32 = 0.001;
 
 #[derive(Debug, Clone)]
 pub struct Ray<System = World> {
