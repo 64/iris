@@ -26,7 +26,7 @@ const WIDTH: usize = 512;
 const HEIGHT: usize = 512;
 const TOTAL_SPP: usize = 100;
 
-type CurrentIntegrator = integrator::swss_naive::SwssNaive;
+type CurrentIntegrator = integrator::hwss_naive::HwssNaive;
 
 pub struct Render {
     pub width: usize,
@@ -39,24 +39,6 @@ pub struct Render {
 }
 
 fn main() {
-    //use shape::Shape;
-    //let sphere = shape::Sphere::new(math::Point3::splat(0.0), 1.0);
-    //for i in 0..200 {
-        //let sample = sphere.sample(
-            //&shape::Intersection {
-                //point: math::Point3::new(2.0, -2.0, 20.0),
-                //normal: math::Vec3::splat(0.0),
-                //tangeant: math::Vec3::splat(0.0),
-                //bitangeant: math::Vec3::splat(0.0),
-                //back_face: false,
-            //},
-            //&mut sampling::Sampler::new(0, 0, i, 0),
-        //);
-        //println!("{} {} {} {}", sample.0.x(), sample.0.y(), sample.0.z(), sample.1);
-    //}
-
-    //std::process::exit(0);
-
     let render = Arc::new(Render {
         width: WIDTH,
         height: HEIGHT,

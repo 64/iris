@@ -2,6 +2,8 @@
 
 CPU path tracer written in Rust.
 
+Licensed under the GPLv3, apart from `crates/sobol` which is shamelessly grabbed from [`cessen/psychopath`](https://github.com/cessen/psychopath).
+
 Features (WIP):
 * Spectral rendering (including wavelength-dependent path generation) with [Hero Wavelength Spectral Sampling](https://cgg.mff.cuni.cz/~wilkie/Website/EGSR_14_files/WNDWH14HWSS.pdf)
 * Spectral upsampling ([Jakob et al.](http://rgl.epfl.ch/publications/Jakob2019Spectral))
@@ -13,6 +15,7 @@ Features (WIP):
 
 TODO:
 * Add README image
+* Clean up tile
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
 * Analytic light integration test (Le = 0.5, f = 0.5, radiance should be 1)
 * More shapes
@@ -22,7 +25,7 @@ TODO:
 * MTL file handling
 * Reconstruction filtering
 * Adaptive sampling (?)
-* Image / HDR output
+* Direct image output
 * Tonemapping options (ACES)
 * Camera lens sim + vigenetting + DoF
 * Volume rendering
@@ -33,11 +36,9 @@ TODO:
 * Clean up normal offseting
 * MIS compensation
 * Triangles
-* Fast shadow ray intersection routines
 * Coherent ray bundles
 * SDF shapes
 * Mipmapping / texture filtering
 * Catmull-Clark
 * Denoising
-* Make lighting match up with PBRT
 * License
