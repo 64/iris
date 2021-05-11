@@ -1,5 +1,7 @@
 #![feature(stdarch)]
 
+extern crate sobol_burley as sobol;
+
 use std::{
     collections::BinaryHeap,
     sync::{Arc, Mutex, RwLock},
@@ -126,7 +128,6 @@ fn do_render(
     .unwrap();
 
     let pixels = render.buffer.read().unwrap();
-    // dbg!(&pixels);
     let mut fb = FrameBuffer::new(render.width as u32, render.height as u32);
     fb.insert_channels(&["R", "G", "B"], &pixels);
     output_file.write_pixels(&fb).unwrap();

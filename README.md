@@ -2,7 +2,7 @@
 
 CPU path tracer written in Rust.
 
-Licensed under the GPLv3, apart from `crates/sobol` which is shamelessly grabbed from [`cessen/psychopath`](https://github.com/cessen/psychopath).
+Licensed under the GPLv3.
 
 Features (WIP):
 * Spectral rendering (including wavelength-dependent path generation) with [Hero Wavelength Spectral Sampling](https://cgg.mff.cuni.cz/~wilkie/Website/EGSR_14_files/WNDWH14HWSS.pdf)
@@ -20,7 +20,6 @@ TODO:
 * Analytic light integration test (Le = 0.5, f = 0.5, radiance should be 1)
 * More shapes
 * Serialize scene from RON
-* Write own sobol code
 * BVH / other spatial accel
 * MTL file handling
 * Reconstruction filtering
