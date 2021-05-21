@@ -5,7 +5,6 @@ perf.*
 crates/**/*/target
 callgrind.*
 data/*.hdr
-data/*.coeff
 data/*.csv
 .cargo/**/*
 *.exr
