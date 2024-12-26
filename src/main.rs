@@ -1,4 +1,4 @@
-#![feature(stdarch)]
+#![feature(portable_simd)]
 
 extern crate sobol_burley as sobol;
 
@@ -113,24 +113,14 @@ fn do_render(
         ((render.spp * WIDTH * HEIGHT) as f32) / (1_000_000.0 * elapsed),
     );
 
-    // Output EXR file
-    use openexr::{FrameBuffer, Header, PixelType, ScanlineOutputFile};
+    use exr::prelude::*;
 
-    let mut file = std::fs::File::create("out.exr").unwrap();
-    let mut output_file = ScanlineOutputFile::new(
-        &mut file,
-        Header::new()
-            .set_resolution(render.width as u32, render.height as u32)
-            .add_channel("R", PixelType::FLOAT)
-            .add_channel("G", PixelType::FLOAT)
-            .add_channel("B", PixelType::FLOAT),
-    )
+    let buffer = render.buffer.read().unwrap();
+
+    write_rgb_file("out.exr", render.width, render.height, |x, y| {
+        buffer[x + y * render.width]
+    })
     .unwrap();
-
-    let pixels = render.buffer.read().unwrap();
-    let mut fb = FrameBuffer::new(render.width as u32, render.height as u32);
-    fb.insert_channels(&["R", "G", "B"], &pixels);
-    output_file.write_pixels(&fb).unwrap();
 }
 
 #[cfg(feature = "progressive")]
@@ -139,6 +129,11 @@ fn do_render(
     tile_priorities: Arc<Mutex<BinaryHeap<TileData>>>,
     num_threads: usize,
 ) {
+    use std::{
+        io::Write,
+        sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+
     use minifb::{Key, Window, WindowOptions};
 
     let mut window = Window::new(
@@ -152,7 +147,7 @@ fn do_render(
     )
     .expect("failed to create window");
 
-    let samples_taken = AtomicUsize::new(0);
+    let samples_taken = Arc::new(AtomicUsize::new(0));
     static DONE: AtomicBool = AtomicBool::new(false);
 
     println!("Starting render...");
@@ -162,6 +157,7 @@ fn do_render(
     for _ in 0..num_threads {
         let tile_priorities = tile_priorities.clone();
         let render = render.clone();
+        let samples_taken = samples_taken.clone();
         std::thread::spawn(move || loop {
             let popped = tile_priorities.lock().unwrap().pop();
             match popped {
@@ -193,39 +189,29 @@ fn do_render(
         });
     }
 
-    let target_rate = std::time::Duration::from_micros(100000); // 10fps
-    window.limit_update_rate(None);
+    window.set_target_fps(10);
 
-    let mut prev_time = Instant::now();
+    let mut fb = vec![0u32; render.width * render.height];
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if !DONE.load(Ordering::Relaxed) {
-            let progress =
-                samples_taken.load(Ordering::Relaxed) as f32 / (render.spp * WIDTH * HEIGHT) as f32;
+            let progress = samples_taken.load(Ordering::Relaxed) as f32
+                / (render.spp * render.width * render.height) as f32;
             print!("Progress: {:>5.2}%\r", 100.0 * progress);
             std::io::stdout().flush().unwrap();
         }
 
-        // TODO: Use some kind of sleeping mutex so that we only update the screen when
-        // the render buffer has changed?
-        let target_rate = target_rate.as_secs_f64();
-        let current_time = Instant::now();
-        let delta = current_time
-            .saturating_duration_since(prev_time)
-            .as_secs_f64();
+        let buffer = render.buffer.read().unwrap();
 
-        if delta < target_rate {
-            let sleep_time = target_rate - delta;
-            if sleep_time > 0.0 {
-                std::thread::sleep(Duration::from_secs_f64(sleep_time));
+        for (i, pixel) in buffer.iter().enumerate() {
+            fb[i] = ((pixel.0 as u32) << 16) | ((pixel.1 as u32) << 8) | (pixel.2 as u32);
+            if *pixel != (0.0, 0.0, 0.0) {
+                dbg!(pixel);
             }
         }
 
-        prev_time = Instant::now();
-
-        let buffer = render.buffer.read().unwrap();
         window
-            .update_with_buffer(&buffer, render.width, render.height)
+            .update_with_buffer(&fb, render.width, render.height)
             .expect("failed to update window buffer with pixel data");
     }
 }

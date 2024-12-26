@@ -1,4 +1,5 @@
-use std::{arch::x86_64::*, mem};
+use std::simd::{cmp::SimdPartialOrd, f32x4};
+
 use crate::math::Vec4;
 
 #[derive(Copy, Clone)]
@@ -10,7 +11,8 @@ impl PdfSet {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
             inner: Vec4::new(x, y, z, w),
-        }.assert_invariants()
+        }
+        .assert_invariants()
     }
 
     pub fn splat(xyzw: f32) -> Self {
@@ -47,8 +49,7 @@ impl PdfSet {
     #[inline(always)]
     fn assert_invariants(self) -> Self {
         debug_assert!(
-            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.inner.data, _mm_setzero_ps()))) }
-                == 1,
+            self.inner.data.simd_ge(f32x4::splat(0.0)).all(),
             "PdfSet contains negative or NaN values: {:?}",
             self
         );

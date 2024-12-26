@@ -26,7 +26,7 @@ impl Sampler {
             self.sample_buffer[self.samples_in_buffer]
         } else if self.samples_in_buffer == 0 {
             // Buffer empty, refill
-            self.sample_buffer = if self.dimension < sobol::MAX_DIMENSION_SET {
+            self.sample_buffer = if self.dimension < sobol::NUM_DIMENSIONS {
                 sobol::sample_4d(
                     self.index,
                     self.dimension,
@@ -63,7 +63,10 @@ impl Sampler {
     // https://github.com/cessen/psychopath/blob/0dfe916523c00a0979de6fb1f781c3a51ba81113/src/renderer.rs#L728
     // Only works once per sampler
     pub fn gen_golden_ratio(&self) -> f32 {
-        let uniform_integer = self.index.wrapping_add(self.scramble).wrapping_mul(2654435769);
+        let uniform_integer = self
+            .index
+            .wrapping_add(self.scramble)
+            .wrapping_mul(2654435769);
         (uniform_integer as f32) / (u32::MAX as f32)
     }
 }

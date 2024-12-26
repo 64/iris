@@ -1,6 +1,6 @@
-use std::{arch::x86_64::*, mem};
+use std::simd::{cmp::SimdPartialOrd, f32x4};
 
-use crate::{color::Xyz, spectrum::Wavelength, math::Vec4};
+use crate::{color::Xyz, math::Vec4, spectrum::Wavelength};
 
 #[derive(Copy, Clone)]
 pub struct SpectralSample {
@@ -11,7 +11,8 @@ impl SpectralSample {
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
             inner: Vec4::new(x, y, z, w),
-        }.assert_invariants()
+        }
+        .assert_invariants()
     }
 
     pub fn splat(xyzw: f32) -> Self {
@@ -62,10 +63,8 @@ impl SpectralSample {
 
     #[inline(always)]
     fn assert_invariants(self) -> Self {
-        // Check that self.data >= 0
         debug_assert!(
-            unsafe { _mm_test_all_ones(mem::transmute(_mm_cmpge_ps(self.inner.data, _mm_setzero_ps()))) }
-                == 1,
+            self.inner.data.simd_ge(f32x4::splat(0.0)).all(),
             "SpectralSample contains negative or NaN values: {:?}",
             self
         );
@@ -75,7 +74,7 @@ impl SpectralSample {
 
     pub fn clamp(self, min: f32, max: f32) -> Self {
         Self {
-            inner: self.inner.clamp(min, max)
+            inner: self.inner.clamp(min, max),
         }
     }
 
@@ -168,7 +167,7 @@ impl std::ops::Div<SpectralSample> for f32 {
 
     fn div(self, other: SpectralSample) -> SpectralSample {
         SpectralSample {
-            inner: self / other.inner
+            inner: self / other.inner,
         }
         .assert_invariants()
     }

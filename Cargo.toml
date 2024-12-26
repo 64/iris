@@ -17,8 +17,8 @@ debug = true
 codegen-units = 1
 
 [dependencies]
-num_cpus = "1.13.0"
-enum_dispatch = "0.3.5"
-openexr = "0.7.1"
-sobol_burley = "0.1.0"
-minifb = { version = "0.19.2", optional = true }
+num_cpus = "1.16"
+enum_dispatch = "0.3"
+sobol_burley = "0.5"
+minifb = { version = "0.27", optional = true }
+exr = "1.73.0"

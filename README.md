@@ -4,6 +4,8 @@ CPU path tracer written in Rust.
 
 Licensed under the GPLv3.
 
+Use a EXR viewer such as [tev](https://github.com/Tom94/tev) to view output images.
+
 Features (WIP):
 * Spectral rendering (including wavelength-dependent path generation) with [Hero Wavelength Spectral Sampling](https://cgg.mff.cuni.cz/~wilkie/Website/EGSR_14_files/WNDWH14HWSS.pdf)
 * Spectral upsampling ([Jakob et al.](http://rgl.epfl.ch/publications/Jakob2019Spectral))
@@ -14,6 +16,7 @@ Features (WIP):
 * HDR environment maps
 
 TODO:
+* Fix progressive rendering
 * Add README image
 * Clean up tile
 * SIMD more things (matmul, vec3, Spectrum eval, upsampling)
