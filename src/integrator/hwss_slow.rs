@@ -45,7 +45,8 @@ impl Integrator for HwssSlow {
 
             // Accumulate emission
             if let Some(light) = prim.get_light(&scene.lights) {
-                radiance += throughput * light.evaluate(wavelength) * mis::balance_heuristic_1(path_pdfs);
+                radiance +=
+                    throughput * light.evaluate(wavelength) * mis::balance_heuristic_1(path_pdfs);
             }
 
             // Sample BSDF

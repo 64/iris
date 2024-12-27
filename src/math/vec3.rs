@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{Vec4, Point3, Shading, World};
+use super::{Point3, Shading, Vec4, World};
 use std::marker::PhantomData;
 
 // TODO: USe vec4 internally
@@ -44,7 +44,9 @@ impl<S> Vec3<S> {
 
     pub fn dot(self, other: Self) -> f32 {
         // TODO: Optimize this
-        self.inner.x() * other.inner.x() + self.inner.y() * other.inner.y() + self.inner.z() * other.inner.z()
+        self.inner.x() * other.inner.x()
+            + self.inner.y() * other.inner.y()
+            + self.inner.z() * other.inner.z()
     }
 
     pub fn cross(self, other: Self) -> Self {

@@ -1,5 +1,4 @@
-use crate::sampling::Sampler;
-use crate::math::Vec4;
+use crate::{math::Vec4, sampling::Sampler};
 
 pub const LAMBDA_MIN_NM: f32 = 360.0;
 pub const LAMBDA_MAX_NM: f32 = 830.0;
@@ -79,7 +78,6 @@ fn rotate_n(hero: f32, n: usize) -> f32 {
 // let x3 = lambda * x2;
 // let x4 = x2 * x2;
 // let x5 = lambda * x4;
-//-8.19329974e-16 
 //-8.19329974e-16 * x5 + 5.58900125e-12 * x4 - 9.63692860e-09 * x3 +
 //-8.19329974e-16   6.92631892e-06 * x2
 //- 2.22283548e-03 * x1

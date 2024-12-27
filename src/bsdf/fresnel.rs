@@ -18,7 +18,12 @@ pub struct FresnelBsdf {
 }
 
 impl FresnelBsdf {
-    pub fn new<S: Into<Spectrum>, T: Into<Spectrum>>(s: S, t: T, base_ior: f32, dispersion: f32) -> Self {
+    pub fn new<S: Into<Spectrum>, T: Into<Spectrum>>(
+        s: S,
+        t: T,
+        base_ior: f32,
+        dispersion: f32,
+    ) -> Self {
         Self {
             reflected_color: s.into(),
             transmitted_color: t.into(),
@@ -28,7 +33,7 @@ impl FresnelBsdf {
     }
 
     fn refractive_index(&self, wavelength: Wavelength) -> Vec4 {
-        //1.5220 + 0.00459 / (wavelength.inner * wavelength.inner * 1e-6)
+        // 1.5220 + 0.00459 / (wavelength.inner * wavelength.inner * 1e-6)
         self.base_ior + self.dispersion / (wavelength.inner * wavelength.inner * 1e-6)
     }
 }
@@ -81,9 +86,10 @@ impl SampleableBsdf for FresnelBsdf {
             if let Some(wi) =
                 math::refract(wo, Vec3::new(0.0, 0.0, 1.0).face_forward(wo), eta_i / eta_t)
             {
-                let ft =
-                    self.transmitted_color.evaluate(wavelength) * (1.0 - fresnel.hero()) * eta_i.powi(2)
-                        / eta_t.powi(2);
+                let ft = self.transmitted_color.evaluate(wavelength)
+                    * (1.0 - fresnel.hero())
+                    * eta_i.powi(2)
+                    / eta_t.powi(2);
                 let hero_value = ft.hero() / wi.cos_theta().abs();
                 (
                     wi,

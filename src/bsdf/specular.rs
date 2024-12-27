@@ -43,8 +43,7 @@ impl SampleableBsdf for SpecularBsdf {
         sampler: &mut Sampler,
     ) -> (Vec3<Shading>, SpectralSample, PdfSet) {
         let wi = Vec3::new(-wo.x(), -wo.y(), wo.z());
-        let bsdf = self.reflected_color.evaluate(hero_wavelength)
-            / wi.cos_theta().abs();
+        let bsdf = self.reflected_color.evaluate(hero_wavelength) / wi.cos_theta().abs();
         (wi, bsdf, PdfSet::splat(1.0))
     }
 

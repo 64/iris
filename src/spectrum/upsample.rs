@@ -173,14 +173,8 @@ mod tests {
         let table = UpsampleTable::load();
 
         let spectrum = table.get_spectrum([0.0, 1.0, 0.0]);
-        assert_eq!(
-            0.010374308,
-            spectrum.evaluate_single(450.0)
-        );
-        assert_eq!(
-            0.021721054,
-            spectrum.evaluate_single(460.0)
-        );
+        assert_eq!(0.010374308, spectrum.evaluate_single(450.0));
+        assert_eq!(0.021721054, spectrum.evaluate_single(460.0));
         assert_eq!(0.95374036, spectrum.evaluate_single(520.0));
         assert_eq!(0.16656497, spectrum.evaluate_single(600.0));
     }
