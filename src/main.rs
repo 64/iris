@@ -46,7 +46,7 @@ fn main() {
         height: HEIGHT,
         spp: TOTAL_SPP,
         integrator: CurrentIntegrator::default(),
-        scene: scene::Scene::dummy(),
+        scene: scene::dummy::scene(),
         buffer: RwLock::new(vec![(0.0, 0.0, 0.0); WIDTH * HEIGHT]),
         camera: Camera::new(
             math::Point3::new(0.0, 0.0, 0.0),
